@@ -13,7 +13,7 @@ interface CreativeMetric {
   leads: number;
   impressions: number;
   clicks: number;
-  permalink?: string;
+  post_link?: string;
 }
 
 // Subcomponent to handle individual image state
@@ -81,9 +81,9 @@ const CreativeCard: React.FC<{
       </div>
 
       <div className="mt-auto pt-3 border-t border-slate-200 flex justify-end items-center opacity-0 group-hover:opacity-100 transition-opacity">
-        {creative.permalink ? (
+        {creative.post_link ? (
             <a 
-              href={creative.permalink} 
+              href={creative.post_link} 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg transition-colors"
@@ -108,7 +108,7 @@ export const CreativeMatrix: React.FC<Props> = ({ data }) => {
       acc[key] = {
         image: curr.ad_image_url,
         title: curr.ad_title || 'Anúncio sem título',
-        permalink: curr.ad_permalink, // Capture the permalink
+        post_link: curr.ad_post_link, // Capture the permalink
         spend: 0,
         leads: 0,
         impressions: 0,
@@ -121,8 +121,8 @@ export const CreativeMatrix: React.FC<Props> = ({ data }) => {
     acc[key].clicks += curr.cliques_todos;
     
     // Fallback: If current row has permalink but stored one doesn't, update it
-    if (!acc[key].permalink && curr.ad_permalink) {
-        acc[key].permalink = curr.ad_permalink;
+    if (!acc[key].post_link && curr.ad_post_link) {
+        acc[key].post_link = curr.ad_post_link;
     }
 
     return acc;

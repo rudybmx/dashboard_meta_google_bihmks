@@ -188,7 +188,7 @@ export const MOCK_DATA: CampaignData[] = RAW_DATA.map((row, idx) => {
     target_idade_max: row.target_idade_max,
     ad_title: row.ad_title,
     ad_image_url: row.ad_image_url,
-    ad_permalink: "https://facebook.com/ads/library/?id=123456789",
+    ad_post_link: "https://facebook.com/ads/library/?id=123456789",
 
     // Calculated/Simulated fields
     cpc: row.cliques > 0 ? cleanSpend / row.cliques : 0,

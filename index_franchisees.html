@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Franqueados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <div class="max-w-2xl mx-auto py-12 px-6">
+        
+        <!-- Header -->
+        <div class="mb-10 text-center">
+            <h1 class="text-3xl font-bold tracking-tight text-white mb-2">Gestão de Franqueados</h1>
+            <p class="text-slate-400">Cadastre e gerencie as unidades da franquia.</p>
+        </div>
+
+        <!-- Form -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 shadow-xl mb-8 backdrop-blur-sm">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Novo Franqueado</h2>
+            <form id="createForm" class="flex gap-4">
+                <input 
+                    type="text" 
+                    id="franqueadoName" 
+                    placeholder="Nome da Unidade (ex: Patrocínio)" 
+                    class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-all"
+                    required
+                />
+                <button 
+                    type="submit" 
+                    class="bg-brand-600 hover:bg-brand-600/90 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-brand-900/50 flex items-center gap-2"
+                >
+                    <span>Cadastrar</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+            </form>
+            <p id="feedback" class="text-sm mt-3 h-5 text-emerald-400 font-medium"></p>
+        </div>
+
+        <!-- List -->
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Unidades Cadastradas</h2>
+                <span id="count" class="bg-slate-800 text-xs px-2 py-1 rounded-md text-slate-400">0</span>
+            </div>
+            
+            <ul id="list" class="space-y-3">
+                <!-- Items will be injected here -->
+                <div class="text-center text-slate-500 py-8 animate-pulse">Carregando dados...</div>
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+        // CONFIG
+        const SUPABASE_URL = 'https://eylnuxgwxlhyasigvzdj.supabase.co'; 
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5bG51eGd3eGxoeWFzaWd2emRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NTU3MDgsImV4cCI6MjA4MjAzMTcwOH0.IQCLTyliIHYgxB3p0xHU72RRvgDcUyT_g9fxKRJD1po';
+
+        // INIT
+        const { createClient } = supabase;
+        // Check if config is set (basic check)
+        const supabaseClient = (SUPABASE_URL.includes('YOUR') || ANON_KEY.includes('YOUR')) 
+            ? null 
+            : createClient(SUPABASE_URL, ANON_KEY);
+
+        // DOM ELEMENTS
+        const form = document.getElementById('createForm');
+        const input = document.getElementById('franqueadoName');
+        const list = document.getElementById('list');
+        const feedback = document.getElementById('feedback');
+        const countSpan = document.getElementById('count');
+
+        // STATE
+        let franchises = [];
+
+        // FUNCTIONS
+        async function fetchFranchises() {
+            if (!supabaseClient) {
+                renderList([]); 
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('tb_franqueados')
+                .select('*')
+                .eq('ativo', true)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error:', error);
+                feedback.textContent = 'Erro ao carregar dados.';
+                feedback.className = 'text-sm mt-3 h-5 text-red-400 font-medium';
+            } else {
+                franchises = data;
+                renderList(data);
+            }
+        }
+
+        async function addFranchise(name) {
+            if (!supabaseClient) {
+                alert('Configure as chaves do Supabase no código!');
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('tb_franqueados')
+                .insert([{ nome: name }])
+                .select();
+
+            if (error) {
+                console.error('Error:', error);
+                feedback.textContent = 'Erro ao cadastrar.';
+                feedback.className = 'text-sm mt-3 h-5 text-red-400 font-medium';
+            } else {
+                input.value = '';
+                feedback.textContent = 'Franqueado cadastrado com sucesso!';
+                feedback.className = 'text-sm mt-3 h-5 text-emerald-400 font-medium';
+                fetchFranchises();
+                setTimeout(() => feedback.textContent = '', 3000);
+            }
+        }
+
+        async function deleteFranchise(id) {
+            if (!confirm('Tem certeza? Isso removerá a visualização da unidade.')) return;
+
+            // Soft delete (update ativo = false)
+            const { error } = await supabaseClient
+                .from('tb_franqueados')
+                .update({ ativo: false })
+                .eq('id', id);
+
+            if (error) {
+                alert('Erro ao excluir');
+            } else {
+                fetchFranchises();
+            }
+        }
+
+        function renderList(items) {
+            countSpan.textContent = items.length;
+            list.innerHTML = '';
+
+            if (items.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-10 border border-dashed border-slate-700 rounded-xl bg-slate-800/30">
+                        <p class="text-slate-500">Nenhum franqueado encontrado.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            items.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'group bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center justify-between hover:border-slate-600 transition-all';
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="h-10 w-10 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">
+                            ${item.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-200">${item.nome}</p>
+                            <p class="text-xs text-slate-500 font-mono">${item.id.slice(0, 8)}...</p>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="deleteFranchise('${item.id}')"
+                        class="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        title="Excluir"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // LISTENERS
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = input.value.trim();
+            if (name) addFranchise(name);
+        });
+
+        // LOAD (Check for Env Keys in URL or Placeholder)
+        // For security, standard practice isn't to expose keys in HTML, but for this "Single File Tool" request:
+        // Attempt to auto-inject if running in an env where replacements happened, else ask user or use mock.
+        if (!supabaseClient) {
+             // Mock Display if no keys
+             const mockData = [
+                 { id: 'uuid-1', nome: 'OP7 | Mock Unit 1', ativo: true },
+                 { id: 'uuid-2', nome: 'OP7 | Mock Unit 2', ativo: true }
+             ];
+             renderList(mockData);
+             feedback.textContent = 'Modo Demo (Configure as chaves no código para conectar)';
+             feedback.className = 'text-sm mt-3 h-5 text-amber-400 font-medium';
+        } else {
+             fetchFranchises();
+        }
+
+    </script>
+</body>
+</html>

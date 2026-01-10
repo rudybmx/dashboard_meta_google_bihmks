@@ -11,17 +11,24 @@ import {
 } from 'lucide-react';
 import { DashboardHeader } from './components/DashboardHeader';
 import { ManagerialView } from './components/ManagerialView';
-import { fetchCampaignData } from './services/supabaseService';
-import { CampaignData } from './types';
+import { AccountsConfig } from './components/AccountsConfig'; // Keeping for reference or fallback? User asked to create THE view. 
+// I will replace usage.
+import { SettingsView } from './components/SettingsView';
+import { fetchCampaignData, fetchFranchises } from './services/supabaseService';
+import { CampaignData, Franchise } from './types';
 
 // Simulating "Today" as Dec 22, 2025 to match the dataset typical range
-const REFERENCE_DATE = new Date('2025-12-22T12:00:00');
+const REFERENCE_DATE = new Date(); // Use current date
 
 const App: React.FC = () => {
   const [data, setData] = useState<CampaignData[]>([]);
+  const [officialFranchises, setOfficialFranchises] = useState<Franchise[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // Navigation State
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
 
   const [selectedFranchise, setSelectedFranchise] = useState<string>('all');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
@@ -38,14 +45,17 @@ const App: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Now returns { data, isMock, error }
-        const result = await fetchCampaignData();
+        const [campaignResult, franchiseList] = await Promise.all([
+             fetchCampaignData(),
+             fetchFranchises()
+        ]);
         
-        setData(result.data);
-        setIsDemoMode(result.isMock);
+        setData(campaignResult.data);
+        setOfficialFranchises(franchiseList);
+        setIsDemoMode(campaignResult.isMock);
         
-        if (result.isMock && result.error) {
-           setConnectionError(result.error);
+        if (campaignResult.isMock && campaignResult.error) {
+           setConnectionError(campaignResult.error);
         }
 
       } catch (err) {
@@ -59,11 +69,14 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  // Extract unique franchises for the dropdown
+  // Extract unique franchises for the dropdown (now from official list)
   const franchises = useMemo(() => {
-    const unique = new Set(data.map(d => d.franqueado));
-    return Array.from(unique).sort();
-  }, [data]);
+    // Only show active franchises that have names
+    return officialFranchises
+        .filter(f => f.active !== false) // Handle optional active flag (default true if undefined, but explicit false is hidden)
+        .map(f => f.name)
+        .sort();
+  }, [officialFranchises]);
 
   // Extract accounts based on selected franchise
   const availableAccounts = useMemo(() => {
@@ -128,6 +141,74 @@ const App: React.FC = () => {
     });
   }, [selectedFranchise, selectedAccount, selectedDateRange, customStartDate, customEndDate, data]);
 
+  // Logic to calculate previous period data for comparison
+  const comparisonData = useMemo(() => {
+    // 1. Calculate Previous Date Range
+    let prevStart: Date | null = null;
+    let prevEnd: Date | null = null;
+    
+    // Helper to shift date back by 1 month
+    const subMonth = (d: Date) => {
+        const newDate = new Date(d);
+        newDate.setMonth(d.getMonth() - 1);
+        return newDate;
+    };
+
+    const refDate = new Date(REFERENCE_DATE);
+
+    if (selectedDateRange === 'custom') {
+        if (customStartDate && customEndDate) {
+            prevStart = subMonth(new Date(customStartDate + 'T00:00:00'));
+            prevEnd = subMonth(new Date(customEndDate + 'T23:59:59'));
+        }
+    } else if (selectedDateRange === 'last-7') {
+        const currentEnd = new Date(refDate);
+        const currentStart = new Date(refDate);
+        currentStart.setDate(refDate.getDate() - 7);
+        prevStart = subMonth(currentStart);
+        prevEnd = subMonth(currentEnd);
+    } else if (selectedDateRange === 'last-30') {
+        const currentEnd = new Date(refDate);
+        const currentStart = new Date(refDate);
+        currentStart.setDate(refDate.getDate() - 30);
+        prevStart = subMonth(currentStart);
+        prevEnd = subMonth(currentEnd);
+    } else if (selectedDateRange === 'this-week') {
+         const startOfWeek = new Date(refDate);
+         startOfWeek.setDate(refDate.getDate() - refDate.getDay());
+         prevStart = subMonth(startOfWeek);
+         prevEnd = subMonth(refDate);
+    } else if (selectedDateRange === 'last-week') {
+         const startOfLastWeek = new Date(refDate);
+         startOfLastWeek.setDate(refDate.getDate() - refDate.getDay() - 7);
+         const endOfLastWeek = new Date(startOfLastWeek);
+         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+         prevStart = subMonth(startOfLastWeek);
+         prevEnd = subMonth(endOfLastWeek);
+    } else if (selectedDateRange === 'this-month') {
+         const startOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+         prevStart = subMonth(startOfMonth);
+         prevEnd = subMonth(refDate);
+    } else if (selectedDateRange === 'last-month') {
+         // Previous of last month = 2 months ago
+         const startOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
+         const endOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
+         prevStart = subMonth(startOfLastMonth);
+         prevEnd = subMonth(endOfLastMonth);
+    }
+
+    if (!prevStart || !prevEnd || selectedDateRange === 'all') return [];
+
+    // 2. Filter Data for Previous Range
+    return data.filter(d => {
+       const matchFranchise = selectedFranchise === 'all' || d.franqueado === selectedFranchise;
+       const matchAccount = selectedAccount === 'all' || d.account_name === selectedAccount;
+       const itemDate = new Date(d.date_start + 'T12:00:00');
+       const matchDate = itemDate >= prevStart! && itemDate <= prevEnd!;
+       return matchFranchise && matchAccount && matchDate;
+    });
+  }, [selectedFranchise, selectedAccount, selectedDateRange, customStartDate, customEndDate, data]);
+
   const getDateLabel = () => {
     switch(selectedDateRange) {
       case 'custom':
@@ -171,21 +252,26 @@ const App: React.FC = () => {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex h-full flex-col p-6">
-          <div className="flex items-center gap-3 px-2 mb-10">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <span className="text-white font-bold text-xl">OP</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">OP7 Performance</h1>
-              <p className="text-xs text-slate-500 font-medium">Dashboard Ad Tech</p>
-            </div>
+          <div className="px-2 mb-10">
+            <img src="/logo.jpg" alt="OP7 Performance" className="w-full h-auto object-contain rounded-xl" />
           </div>
 
           <nav className="flex-1 space-y-2">
-            <SidebarItem icon={<LayoutDashboard size={20} />} label="Visão Gerencial" active />
+            <SidebarItem 
+                icon={<LayoutDashboard size={20} />} 
+                label="Visão Gerencial" 
+                active={activeView === 'dashboard'} 
+                onClick={() => { setActiveView('dashboard'); setIsMobileMenuOpen(false); }}
+            />
             <SidebarItem icon={<PieChartIcon size={20} />} label="Campanhas" />
             <SidebarItem icon={<Users size={20} />} label="Públicos" />
-            <SidebarItem icon={<Settings size={20} />} label="Configurações" />
+            
+            <SidebarItem 
+                icon={<Settings size={20} />} 
+                label="Configurações" 
+                active={activeView === 'settings'}
+                onClick={() => { setActiveView('settings'); setIsMobileMenuOpen(false); }}
+            />
           </nav>
 
           <div className="mt-auto pt-6 border-t border-slate-100">
@@ -211,14 +297,7 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-4 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-white/10 rounded-full blur-2xl"></div>
-              <h4 className="font-semibold mb-1 relative z-10">Precisa de Ajuda?</h4>
-              <p className="text-xs text-slate-300 mb-3 relative z-10">Contate nosso suporte para relatórios personalizados.</p>
-              <button className="text-xs font-semibold bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg w-full text-center relative z-10">
-                Contatar Suporte
-              </button>
-            </div>
+
           </div>
         </div>
       </aside>
@@ -248,20 +327,28 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex-1 w-full">
-            <DashboardHeader 
-              franchises={franchises} 
-              selectedFranchise={selectedFranchise} 
-              onSelectFranchise={setSelectedFranchise}
-              accounts={availableAccounts}
-              selectedAccount={selectedAccount}
-              onSelectAccount={setSelectedAccount}
-              selectedDateRange={selectedDateRange}
-              onSelectDateRange={setSelectedDateRange}
-              customStartDate={customStartDate}
-              onCustomStartDateChange={setCustomStartDate}
-              customEndDate={customEndDate}
-              onCustomEndDateChange={setCustomEndDate}
-            />
+            {/* Show Filters only on Dashboard View */}
+            {activeView === 'dashboard' ? (
+                <DashboardHeader 
+                  franchises={franchises} 
+                  selectedFranchise={selectedFranchise} 
+                  onSelectFranchise={setSelectedFranchise}
+                  accounts={availableAccounts}
+                  selectedAccount={selectedAccount}
+                  onSelectAccount={setSelectedAccount}
+                  selectedDateRange={selectedDateRange}
+                  onSelectDateRange={setSelectedDateRange}
+                  customStartDate={customStartDate}
+                  onCustomStartDateChange={setCustomStartDate}
+                  customEndDate={customEndDate}
+                  onCustomEndDateChange={setCustomEndDate}
+                />
+            ) : (
+                <div className="flex items-center text-slate-400 font-medium">
+                    <Settings className="mr-2" size={18} />
+                    Área Administrativa
+                </div>
+            )}
           </div>
           
           <div className="hidden md:flex items-center gap-4 pl-4 border-l border-slate-200 ml-2">
@@ -277,19 +364,21 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-auto p-4 md:p-8 space-y-8">
           
-          {/* Header Section */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold text-slate-900">Performance Gerencial</h2>
-                <span className="text-xs font-medium bg-slate-200 text-slate-600 px-3 py-1 rounded-full">
-                    {getDateLabel()}
-                </span>
-            </div>
-            <p className="text-sm text-slate-500 mb-6">Visão estratégica de funil e criativos para tomada de decisão rápida.</p>
-            
-            {/* The New Managerial View Component with Live Data */}
-            <ManagerialView data={filteredData} />
-          </section>
+          {activeView === 'dashboard' ? (
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-2xl font-bold text-slate-900">Performance Gerencial</h2>
+                    <span className="text-xs font-medium bg-slate-200 text-slate-600 px-3 py-1 rounded-full">
+                        {getDateLabel()}
+                    </span>
+                </div>
+                <p className="text-sm text-slate-500 mb-6">Visão estratégica de funil e criativos para tomada de decisão rápida.</p>
+                
+                <ManagerialView data={filteredData} comparisonData={comparisonData} />
+              </section>
+          ) : (
+              <SettingsView />
+          )}
 
           <footer className="text-center text-slate-400 text-sm py-8">
             &copy; {new Date().getFullYear()} OP7 Performance. Todos os direitos reservados.
@@ -300,8 +389,10 @@ const App: React.FC = () => {
   );
 };
 
-const SidebarItem: React.FC<{ icon: React.ReactNode; label: string; active?: boolean }> = ({ icon, label, active }) => (
-  <button className={`
+const SidebarItem: React.FC<{ icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }> = ({ icon, label, active, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={`
     w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 group
     ${active 
       ? 'bg-indigo-50 text-indigo-600 shadow-sm font-semibold' 

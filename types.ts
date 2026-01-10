@@ -21,6 +21,8 @@ export interface CampaignData {
   cpm?: number;
   frequencia?: number;
   custo_por_lead?: number;
+  custo_por_compra?: number;
+  alcance?: number;
   
   // Volume (Bottom Funnel)
   impressoes: number;
@@ -30,10 +32,22 @@ export interface CampaignData {
   msgs_iniciadas?: number;
   msgs_conexoes?: number;
   msgs_novos_contatos?: number;
+  msgs_profundidade_2?: number;
+  msgs_profundidade_3?: number;
 
   // Targeting & Platform
   target_plataformas: Platform; // Maps to 'platform' in logic
+  target_interesses?: string;
+  target_familia?: string;
+  target_comportamentos?: string;
+  target_publicos_custom?: string;
   target_local_1?: string;
+  target_local_2?: string;
+  target_local_3?: string;
+  target_tipo_local?: string;
+  target_brand_safety?: string;
+  target_posicao_fb?: string;
+  target_posicao_ig?: string;
   target_idade_min?: number;
   target_idade_max?: number;
   
@@ -41,7 +55,18 @@ export interface CampaignData {
   ad_image_url?: string;
   ad_title?: string;
   ad_body?: string;
-  ad_permalink?: string; // Link direto para o anúncio (preview)
+  ad_destination_url?: string;
+  ad_cta?: string;
+  ad_post_link?: string; // Link direto para o anúncio (preview)
+}
+
+export interface AccountConfig {
+  id: string;
+  account_id: string;
+  franqueado: string;
+  account_name: string;
+  nome_ajustado?: string;
+  created_at: string;
 }
 
 export interface KPIAggregates {
@@ -51,4 +76,26 @@ export interface KPIAggregates {
   roas: number;
   totalImpressions: number;
   totalClicks: number;
+}
+
+export interface Franchise {
+  id: string;
+  name: string;
+  active?: boolean;
+}
+
+export interface MetaAdAccount {
+  id: string; // Internal UUID
+  account_id: string; // Meta Account ID (e.g. act_123)
+  account_name: string; // Original Name
+  display_name?: string; // Friendly Name
+  franchise_id?: string; // Linked Franchise
+  status: 'active' | 'removed' | 'archived'; 
+  client_visibility: boolean;
+  current_balance: number;
+  last_sync: string;
+  status_meta?: string;
+  motivo_bloqueio?: string;
+  total_gasto?: number;
+  status_interno?: string;
 }

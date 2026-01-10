@@ -76,7 +76,7 @@ export const fetchCampaignData = async (): Promise<CampaignData[]> => {
       platform: findCol(['platform', 'plataforma', 'publisher platform']),
       image: findCol(['ad image url', 'image', 'imagem', 'url da imagem', 'creative_url']),
       title: findCol(['ad headline', 'titulo', 'headline', 'título']),
-      permalink: findCol(['ad_post_link', 'preview_link', 'link_do_anuncio', 'permalink', 'url_do_post']),
+      post_link: findCol(['ad_post_link', 'preview_link', 'link_do_anuncio', 'permalink', 'url_do_post']),
       city: findCol(['city', 'cidade']),
       age_min: findCol(['age_min', 'idade_min']),
       age_max: findCol(['age_max', 'idade_max'])
@@ -122,7 +122,7 @@ export const fetchCampaignData = async (): Promise<CampaignData[]> => {
         target_plataformas: platform,
         ad_image_url: getVal(colMap.image),
         ad_title: getVal(colMap.title) || campName,
-        ad_permalink: getVal(colMap.permalink),
+        ad_post_link: getVal(colMap.post_link),
         target_local_1: getVal(colMap.city),
         target_idade_min: parseNumber(getVal(colMap.age_min)),
         target_idade_max: parseNumber(getVal(colMap.age_max)),
