@@ -1,5 +1,13 @@
 import React from 'react';
 import { Filter, ChevronDown, Building2, Calendar } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Props {
   franchises: string[];
@@ -34,69 +42,56 @@ export const DashboardHeader: React.FC<Props> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full">
       
       {/* Franchise Filter */}
-      <div className="relative group w-full">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Filter size={16} className="text-indigo-500" />
-        </div>
-        <select
-          value={selectedFranchise}
-          onChange={(e) => onSelectFranchise(e.target.value)}
-          className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-2xl pl-10 pr-10 py-2.5 shadow-sm shadow-slate-200 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
-        >
-          <option value="all">Todas Franquias</option>
-          {franchises.map(f => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-        </div>
-      </div>
+      <Select value={selectedFranchise} onValueChange={onSelectFranchise}>
+        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Filter size={16} className="text-secondary-foreground" />
+             </div>
+             <SelectValue placeholder="Todas Franquias" />
+        </SelectTrigger>
+        <SelectContent>
+            <SelectItem value="all">Todas Franquias</SelectItem>
+            {franchises.map(f => (
+                <SelectItem key={f} value={f}>{f}</SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
 
       {/* Account Filter */}
-      <div className="relative group w-full">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Building2 size={16} className="text-orange-500" />
-        </div>
-        <select
-          value={selectedAccount}
-          onChange={(e) => onSelectAccount(e.target.value)}
-          disabled={accounts.length === 0}
-          className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-2xl pl-10 pr-10 py-2.5 shadow-sm shadow-slate-200 hover:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
-        >
-          <option value="all">Todas Contas</option>
-          {accounts.map(acc => (
-            <option key={acc} value={acc}>{acc}</option>
-          ))}
-        </select>
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
-        </div>
-      </div>
+      <Select value={selectedAccount} onValueChange={onSelectAccount} disabled={accounts.length === 0}>
+        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Building2 size={16} className="text-orange-500" />
+             </div>
+             <SelectValue placeholder="Todas Contas" />
+        </SelectTrigger>
+        <SelectContent>
+            <SelectItem value="all">Todas Contas</SelectItem>
+            {accounts.map(acc => (
+                <SelectItem key={acc} value={acc}>{acc}</SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
 
       {/* Date Range Filter */}
-      <div className="relative group w-full">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Calendar size={16} className="text-emerald-500" />
-        </div>
-        <select
-          value={selectedDateRange}
-          onChange={(e) => onSelectDateRange(e.target.value)}
-          className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-2xl pl-10 pr-10 py-2.5 shadow-sm shadow-slate-200 hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
-        >
-          <option value="last-7">Últimos 7 Dias</option>
-          <option value="last-30">Últimos 30 Dias</option>
-          <option value="this-week">Esta Semana</option>
-          <option value="last-week">Semana Passada</option>
-          <option value="this-month">Este Mês</option>
-          <option value="last-month">Mês Passado</option>
-          <option value="all">Todo o Período</option>
-          <option value="custom">Personalizado</option>
-        </select>
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
-        </div>
-      </div>
+      <Select value={selectedDateRange} onValueChange={onSelectDateRange}>
+        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Calendar size={16} className="text-emerald-500" />
+             </div>
+             <SelectValue placeholder="Período" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="last-7">Últimos 7 Dias</SelectItem>
+          <SelectItem value="last-30">Últimos 30 Dias</SelectItem>
+          <SelectItem value="this-week">Esta Semana</SelectItem>
+          <SelectItem value="last-week">Semana Passada</SelectItem>
+          <SelectItem value="this-month">Este Mês</SelectItem>
+          <SelectItem value="last-month">Mês Passado</SelectItem>
+          <SelectItem value="all">Todo o Período</SelectItem>
+          <SelectItem value="custom">Personalizado</SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Custom Date Inputs (Conditional - Appears in the grid if custom is selected) */}
       {selectedDateRange === 'custom' && (
@@ -105,23 +100,23 @@ export const DashboardHeader: React.FC<Props> = ({
             type="date"
             value={customStartDate}
             onChange={(e) => onCustomStartDateChange(e.target.value)}
-            className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-2xl px-3 py-2.5 shadow-sm shadow-slate-200 hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            className="w-full bg-background border border-input text-foreground text-xs font-medium rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-1 focus:ring-ring transition-all h-10"
             />
-            <span className="text-slate-400 font-medium text-xs">até</span>
+            <span className="text-muted-foreground font-medium text-xs">até</span>
             <input
             type="date"
             value={customEndDate}
             onChange={(e) => onCustomEndDateChange(e.target.value)}
-            className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-2xl px-3 py-2.5 shadow-sm shadow-slate-200 hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            className="w-full bg-background border border-input text-foreground text-xs font-medium rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-1 focus:ring-ring transition-all h-10"
             />
         </div>
       )}
 
-      {/* Placeholder to keep grid balanced if needed, or Active Badge */}
+      {/* Filter Badge - Only show if not custom date (to balance grid) */}
       {selectedDateRange !== 'custom' && (
          <div className="hidden xl:flex items-center justify-end">
             {(selectedFranchise !== 'all' || selectedAccount !== 'all' || selectedDateRange !== 'all') && (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 animate-in fade-in zoom-in duration-300">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 animate-in fade-in zoom-in duration-300">
                     Filtros Ativos
                 </span>
             )}
