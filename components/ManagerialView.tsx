@@ -3,12 +3,13 @@ import { CampaignData } from '../types';
 import { DollarSign, MessageCircle, Users, Target, ArrowRight, TrendingUp, TrendingDown, Eye, Route, MousePointer2 } from 'lucide-react';
 import { Funnel3DWidget } from './Funnel3DWidget';
 import { WeeklyTrendsWidget } from './WeeklyTrendsWidget';
-import { CreativeCarousel } from './CreativeCarousel';
+
 import { GeoMapWidget } from './GeoMapWidget';
 import { AgeChartWidget } from './AgeChartWidget';
 import { ObjectivesPerformanceWidget } from './ObjectivesPerformanceWidget';
+import { TopCreativesWidget } from './TopCreativesWidget';
 
-import { CampaignsTable } from './CampaignsTable';
+
 
 interface Props {
   data: CampaignData[];
@@ -236,9 +237,14 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
          ))}
       </div>
 
-      {/* New Objectives Widget */}
-      <section>
-        <ObjectivesPerformanceWidget ads={data} />
+      {/* New Objectives & Top Creatives Widget */}
+      <section className="space-y-8">
+        <div className="w-full">
+            <ObjectivesPerformanceWidget ads={data} />
+        </div>
+        <div className="w-full">
+            <TopCreativesWidget data={data} />
+        </div>
       </section>
 
       {/* 2. Charts Row (Funnel + Weekly Trends) */}
@@ -258,10 +264,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
 
       </section>
 
-      {/* 3. Creative Matrix Carousel (Section B) */}
-      <section>
-        <CreativeCarousel ads={data} />
-      </section>
+
 
       {/* 4. Geography & Age Analysis (Section C) */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto">
@@ -269,13 +272,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
         <AgeChartWidget ads={data} />
       </section>
 
-      {/* 5. Analytical Table (Section D) */}
-      <section>
-         <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900">Detalhamento de Campanhas</h3>
-        </div>
-        <CampaignsTable data={data} />
-      </section>
+
 
     </div>
   );

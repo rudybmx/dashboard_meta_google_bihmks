@@ -2,108 +2,31 @@ import { supabase } from './supabaseClient';
 import { CampaignData, Platform } from '../types';
 import { MOCK_DATA } from '../constants';
 
-// Nome da tabela no Supabase
-const TABLE_NAME = 'ads_insights';
+// Tabela/View no Supabase
+const VIEW_NAME = 'vw_dashboard_unified';
 
 export const fetchCampaignData = async (): Promise<{ data: CampaignData[], isMock: boolean, error: string | null }> => {
   try {
-    // Tentativa de conexão com o Supabase
+    // Busca direta da View com dados já tratados
     const { data, error } = await supabase
-      .from(TABLE_NAME)
+      .from(VIEW_NAME)
       .select('*');
 
-    // Se houver erro de API (ex: tabela não existe), lançar exceção para cair no catch
+    // Se houver erro de API
     if (error) {
       console.error('Supabase API Error:', JSON.stringify(error, null, 2));
       throw new Error(`Erro Supabase: ${error.message} (${error.code || 'Unknown Code'})`);
     }
 
-    // Se a tabela existir mas estiver vazia
+    // Se a tabela/view estiver vazia
     if (!data || data.length === 0) {
-      console.warn(`Tabela '${TABLE_NAME}' está vazia. Usando dados de teste.`);
+      console.warn(`View '${VIEW_NAME}' está vazia. Usando dados de teste.`);
       return { data: MOCK_DATA, isMock: true, error: 'Tabela vazia' };
     }
 
-    // Processamento dos dados reais
-    const mappedData: CampaignData[] = data.map((row: any, index: number) => {
-      const pF = (val: any) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        if (typeof val === 'string') {
-          // Remove currency symbols and other non-numeric chars except comma and dot
-          const clean = val.replace(/[^0-9,.-]/g, '');
-          // If it has a comma, replace it with a dot (assuming Brazilian format)
-          return parseFloat(clean.replace(',', '.'));
-        }
-        return 0;
-      };
-      
-      // Normalização de plataforma
-      let platform: Platform = 'facebook';
-      const rawPlatform = (row.target_plataformas || row.platform || '').toLowerCase();
-      if (rawPlatform.includes('insta')) platform = 'instagram';
-      else if (rawPlatform.includes('google')) platform = 'google';
-      else if (rawPlatform.includes('audience')) platform = 'audience_network';
-
-      return {
-        // Identification
-        unique_id: row.unique_id || `supa-${index}`,
-        franqueado: row.franqueado || 'Geral',
-        account_id: row.account_id,
-        account_name: row.account_name || 'Conta Desconhecida',
-        ad_id: row.ad_id,
-        date_start: row.date_start || new Date().toISOString().split('T')[0],
-        campaign_name: row.campaign_name || 'Campanha',
-        adset_name: row.adset_name,
-        ad_name: row.ad_name,
-        objective: row.objective,
-
-        // Metrics (Cost & Efficiency)
-        valor_gasto: pF(row.valor_gasto),
-        cpc: pF(row.cpc),
-        ctr: pF(row.ctr),
-        cpm: pF(row.cpm),
-        frequencia: pF(row.frequencia),
-        custo_por_lead: pF(row.custo_por_lead),
-        custo_por_compra: pF(row.custo_por_compra),
-        alcance: pF(row.alcance),
-
-        // Volume (Bottom Funnel)
-        impressoes: pF(row.impressoes),
-        cliques_todos: pF(row.cliques_todos),
-        leads_total: pF(row.leads_total),
-        compras: pF(row.compras),
-        msgs_iniciadas: pF(row.msgs_iniciadas),
-        msgs_conexoes: pF(row.msgs_conexoes),
-        msgs_novos_contatos: pF(row.msgs_novos_contatos),
-        msgs_profundidade_2: pF(row.msgs_profundidade_2),
-        msgs_profundidade_3: pF(row.msgs_profundidade_3),
-
-        // Targeting & Platform
-        target_plataformas: platform,
-        target_interesses: row.target_interesses,
-        target_familia: row.target_familia,
-        target_comportamentos: row.target_comportamentos,
-        target_publicos_custom: row.target_publicos_custom,
-        target_local_1: row.target_local_1,
-        target_local_2: row.target_local_2,
-        target_local_3: row.target_local_3,
-        target_tipo_local: row.target_tipo_local,
-        target_brand_safety: row.target_brand_safety,
-        target_posicao_fb: row.target_posicao_fb,
-        target_posicao_ig: row.target_posicao_ig,
-        target_idade_min: row.target_idade_min,
-        target_idade_max: row.target_idade_max,
-
-        // Creative
-        ad_image_url: row.ad_image_url,
-        ad_title: row.ad_title,
-        ad_body: row.ad_body,
-        ad_destination_url: row.ad_destination_url,
-        ad_cta: row.ad_cta,
-        ad_post_link: row.ad_post_link
-      };
-    });
+    // O dado já vem limpo e tipado do Postgres (View)
+    // Apenas fazemos o cast para garantir a interface do TS
+    const mappedData = data as unknown as CampaignData[];
 
     return { data: mappedData, isMock: false, error: null };
 

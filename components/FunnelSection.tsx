@@ -1,5 +1,14 @@
 
 
+import React from 'react';
+
+interface Props {
+  investment: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+}
+
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 const formatPercent = (val: number) => `${val.toFixed(2)}%`;

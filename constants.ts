@@ -170,17 +170,30 @@ export const MOCK_DATA: CampaignData[] = RAW_DATA.map((row, idx) => {
   return {
     unique_id: `row-${idx}-${row.date}`,
     franqueado: row.franqueado,
+    account_id: `mock-acc-${idx}`, // Added required field
     account_name: row.account_name,
+    ad_id: `mock-ad-${idx}`, // Added required field
     campaign_name: row.campaign_name,
     date_start: row.date,
     valor_gasto: cleanSpend,
-    impressoes: row.impressoes,
-    cliques_todos: row.cliques,
-    leads_total: cleanLeads,
-    msgs_iniciadas: row.msgs_iniciadas,
-    msgs_conexoes: row.msgs_conexoes,
+    
+    // Metrics - Ensure defined numbers
+    impressoes: row.impressoes || 0,
+    cliques_todos: row.cliques || 0,
+    leads_total: cleanLeads || 0,
+    compras: 0, // Default
+    msgs_iniciadas: row.msgs_iniciadas || 0,
+    msgs_conexoes: row.msgs_conexoes || 0,
     msgs_novos_contatos: row.msgs_novos_contatos || 0,
-    target_plataformas: (row.platform === 'instagram' ? 'instagram' : row.platform) as 'facebook' | 'google' | 'instagram',
+    msgs_profundidade_2: 0,
+    msgs_profundidade_3: 0,
+    
+    alcance: 0, // Default
+    frequencia: 0,
+    cpm: 0,
+    custo_por_compra: 0,
+
+    target_plataformas: (row.platform === 'instagram' ? 'instagram' : row.platform) as string,
     
     // Novos Campos
     target_local_1: row.target_local_1,
@@ -190,7 +203,7 @@ export const MOCK_DATA: CampaignData[] = RAW_DATA.map((row, idx) => {
     ad_image_url: row.ad_image_url,
     ad_post_link: "https://facebook.com/ads/library/?id=123456789",
 
-    // Calculated/Simulated fields
+    // Calculated fields
     cpc: row.cliques > 0 ? cleanSpend / row.cliques : 0,
     ctr: row.impressoes > 0 ? (row.cliques / row.impressoes) * 100 : 0,
     custo_por_lead: cleanLeads > 0 ? cleanSpend / cleanLeads : 0,

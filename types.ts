@@ -1,42 +1,42 @@
 
 export type Platform = 'facebook' | 'google' | 'instagram' | 'audience_network';
 
-export interface CampaignData {
+export interface DashboardMetric {
   // Identification
-  unique_id: string; // Composite key
+  unique_id: string; // Composite key or specific ID
   franqueado: string;
-  account_id?: string;
+  account_id: string; // Normalized to string from DB
   account_name: string;
-  ad_id?: string;
+  ad_id: string; // Normalized to string
   date_start: string; // YYYY-MM-DD
   campaign_name: string;
   adset_name?: string;
   ad_name?: string;
   objective?: string;
 
-  // Metrics (Cost & Efficiency)
+  // Metrics (Cost & Efficiency) - All numeric
   valor_gasto: number;
-  cpc?: number;
-  ctr?: number;
-  cpm?: number;
-  frequencia?: number;
-  custo_por_lead?: number;
-  custo_por_compra?: number;
-  alcance?: number;
+  cpc: number;
+  ctr: number;
+  cpm: number;
+  frequencia: number;
+  custo_por_lead: number;
+  custo_por_compra: number;
+  alcance: number;
   
-  // Volume (Bottom Funnel)
+  // Volume (Bottom Funnel) - All numeric
   impressoes: number;
   cliques_todos: number;
   leads_total: number;
-  compras?: number;
-  msgs_iniciadas?: number;
-  msgs_conexoes?: number;
-  msgs_novos_contatos?: number;
-  msgs_profundidade_2?: number;
-  msgs_profundidade_3?: number;
+  compras: number;
+  msgs_iniciadas: number;
+  msgs_conexoes: number;
+  msgs_novos_contatos: number;
+  msgs_profundidade_2: number;
+  msgs_profundidade_3: number;
 
   // Targeting & Platform
-  target_plataformas: Platform; // Maps to 'platform' in logic
+  target_plataformas: string; // 'facebook' | 'instagram' | 'google' | ... (normalized by View)
   target_interesses?: string;
   target_familia?: string;
   target_comportamentos?: string;
@@ -57,8 +57,10 @@ export interface CampaignData {
   ad_body?: string;
   ad_destination_url?: string;
   ad_cta?: string;
-  ad_post_link?: string; // Link direto para o anúncio (preview)
+  ad_post_link?: string;
 }
+
+export type CampaignData = DashboardMetric; // Alias for backward compatibility if needed
 
 export interface AccountConfig {
   id: string;

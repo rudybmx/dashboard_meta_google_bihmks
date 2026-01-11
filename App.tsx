@@ -4,6 +4,8 @@ import { MobileNav } from './components/layout/MobileNav';
 import { DashboardHeader } from './components/DashboardHeader';
 import { ManagerialView } from './components/ManagerialView';
 import { SettingsView } from './components/SettingsView';
+import { CampaignsView } from './components/CampaignsView';
+import { CreativesView } from './components/CreativesView';
 import { fetchCampaignData, fetchFranchises } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2 } from 'lucide-react';
@@ -16,7 +18,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives'>('dashboard');
 
   // Estados de Filtro
   const [selectedFranchise, setSelectedFranchise] = useState<string>('all');
@@ -256,7 +258,11 @@ export default function App() {
                    </div>
                 </div>
              ) : (
-                <h2 className="text-lg font-semibold">Configurações</h2>
+                <h2 className="text-lg font-semibold">
+                  {activeView === 'campaigns' ? 'Campanhas' : 
+                   activeView === 'creatives' ? 'Criativos' : 
+                   activeView === 'settings' ? 'Configurações' : ''}
+                </h2>
              )}
           </div>
         </header>
@@ -291,9 +297,21 @@ export default function App() {
                 </div>
             )}
 
-            {activeView === 'dashboard' ? (
+            {/* VIEW RENDEIRNG: Explicit blocks to avoid ternary nesting issues */}
+            
+            {activeView === 'dashboard' && (
                 <ManagerialView data={filteredData} comparisonData={comparisonData} />
-            ) : (
+            )}
+
+            {activeView === 'campaigns' && (
+                <CampaignsView data={filteredData} />
+            )}
+
+            {activeView === 'creatives' && (
+                <CreativesView data={filteredData} />
+            )}
+
+            {activeView === 'settings' && (
                 <SettingsView />
             )}
            

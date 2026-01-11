@@ -109,16 +109,29 @@ export const fetchCampaignData = async (): Promise<CampaignData[]> => {
       return {
         unique_id: `row-${idx}-${dateVal}`,
         franqueado: getVal(colMap.franqueado) || 'Franquia Geral',
+        account_id: `sheet-acc-${idx}`, // Generated ID
         account_name: getVal(colMap.account) || 'Conta Desconhecida',
+        ad_id: `sheet-ad-${idx}`, // Generated ID
         campaign_name: campName,
         date_start: dateVal,
         valor_gasto: spend,
+        
+        // Metrics
         impressoes: impressions,
         cliques_todos: clicks,
         leads_total: leads,
+        compras: 0, // Not mapped in colMap
         msgs_iniciadas: parseNumber(getVal(colMap.msgs_started)),
         msgs_conexoes: parseNumber(getVal(colMap.msgs_connected)),
         msgs_novos_contatos: parseNumber(getVal(colMap.msgs_contact)),
+        msgs_profundidade_2: 0,
+        msgs_profundidade_3: 0,
+        
+        alcance: 0,
+        frequencia: 0,
+        cpm: 0,
+        custo_por_compra: 0, // or calculate it?
+
         target_plataformas: platform,
         ad_image_url: getVal(colMap.image),
         ad_title: getVal(colMap.title) || campName,
@@ -128,6 +141,7 @@ export const fetchCampaignData = async (): Promise<CampaignData[]> => {
         target_idade_max: parseNumber(getVal(colMap.age_max)),
         
         // Calculated
+        cpc: clicks > 0 ? spend / clicks : 0,
         ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
         custo_por_lead: leads > 0 ? spend / leads : 0,
       };
