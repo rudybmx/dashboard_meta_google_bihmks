@@ -1,11 +1,11 @@
 import React from 'react';
-import { LayoutDashboard, PieChart, Users, Settings, Database, AlertCircle, Palette } from 'lucide-react';
+import { LayoutDashboard, PieChart, Users, Settings, Database, AlertCircle, Palette, LineChart, LayoutGrid } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives';
-  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives') => void;
+  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads';
+  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads') => void;
   isDemoMode: boolean;
   className?: string;
 }
@@ -30,11 +30,11 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode }: Si
 
       <nav className="flex-1 space-y-2">
         <NavItem icon={LayoutDashboard} label="Visão Gerencial" view="dashboard" />
+        <NavItem icon={LineChart} label="Visão Executiva" view="executive" />
         <NavItem icon={PieChart} label="Campanhas" view="campaigns" />
-        <NavItem icon={Palette} label="Criativos" view="creatives" />
-        <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" disabled>
-          <Users size={20} /> Públicos (Em breve)
-        </Button>
+        <NavItem icon={LayoutGrid} label="Anúncios (Tabela)" view="ads" />
+        <NavItem icon={Palette} label="Criativos (Galeria)" view="creatives" />
+        <NavItem icon={Users} label="Públicos" view="demographics" />
         <NavItem icon={Settings} label="Configurações" view="settings" />
       </nav>
 

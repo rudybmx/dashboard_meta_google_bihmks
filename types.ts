@@ -23,6 +23,7 @@ export interface DashboardMetric {
   custo_por_lead: number;
   custo_por_compra: number;
   alcance: number;
+  valor_compras?: number; // Total Purchase Value (Revenue)
   
   // Volume (Bottom Funnel) - All numeric
   impressoes: number;

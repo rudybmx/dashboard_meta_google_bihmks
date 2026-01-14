@@ -1,127 +1,104 @@
-import React from 'react';
-import { Filter, ChevronDown, Building2, Calendar } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import React, { useMemo } from 'react';
+import { Calendar, RangeValue } from '@/components/ui/calendar';
+import { Select } from '@/components/ui/select-1'; 
+import { Filter, CalendarDays } from 'lucide-react';
+import { CampaignData } from '../types';
+import { subDays, startOfMonth } from 'date-fns';
 
-interface Props {
-  franchises: string[];
-  selectedFranchise: string;
-  onSelectFranchise: (val: string) => void;
-  accounts: string[];
-  selectedAccount: string;
-  onSelectAccount: (val: string) => void;
-  selectedDateRange: string;
-  onSelectDateRange: (val: string) => void;
-  customStartDate: string;
-  onCustomStartDateChange: (val: string) => void;
-  customEndDate: string;
-  onCustomEndDateChange: (val: string) => void;
+interface DashboardHeaderProps {
+  data: CampaignData[];
+  selectedFranchisee: string;
+  setSelectedFranchisee: (val: string) => void;
+  selectedClient: string;
+  setSelectedClient: (val: string) => void;
+  dateRange: RangeValue | null;
+  setDateRange: (range: RangeValue | null) => void;
 }
 
-export const DashboardHeader: React.FC<Props> = ({ 
-  franchises, 
-  selectedFranchise, 
-  onSelectFranchise,
-  accounts,
-  selectedAccount,
-  onSelectAccount,
-  selectedDateRange,
-  onSelectDateRange,
-  customStartDate,
-  onCustomStartDateChange,
-  customEndDate,
-  onCustomEndDateChange
+export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+  data,
+  selectedFranchisee,
+  setSelectedFranchisee,
+  selectedClient,
+  setSelectedClient,
+  dateRange,
+  setDateRange
 }) => {
+  
+  // 1. Extract Unique Franchisees
+  const franchisees = useMemo(() => {
+    const unique = new Set(data.map(item => item.franqueado).filter(Boolean));
+    return Array.from(unique).sort().map(f => ({ value: f, label: f }));
+  }, [data]);
+
+  // 2. Extract Clients (Filtered by Franchisee)
+  const clients = useMemo(() => {
+    let filtered = data;
+    if (selectedFranchisee) {
+      filtered = data.filter(item => item.franqueado === selectedFranchisee);
+    }
+    const unique = new Set(filtered.map(item => item.account_name).filter(Boolean));
+    return Array.from(unique).sort().map(c => ({ value: c, label: c }));
+  }, [data, selectedFranchisee]);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full">
+    <div className="flex h-20 w-full items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm z-50 relative">
       
-      {/* Franchise Filter */}
-      <Select value={selectedFranchise} onValueChange={onSelectFranchise}>
-        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
-             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Filter size={16} className="text-secondary-foreground" />
-             </div>
-             <SelectValue placeholder="Todas Franquias" />
-        </SelectTrigger>
-        <SelectContent>
-            <SelectItem value="all">Todas Franquias</SelectItem>
-            {franchises.map(f => (
-                <SelectItem key={f} value={f}>{f}</SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
+      {/* Left: Page Title */}
+      <div>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Visão Gerencial</h1>
+        <p className="text-sm text-slate-500 flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          Dados atualizados
+        </p>
+      </div>
 
-      {/* Account Filter */}
-      <Select value={selectedAccount} onValueChange={onSelectAccount} disabled={accounts.length === 0}>
-        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
-             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Building2 size={16} className="text-orange-500" />
-             </div>
-             <SelectValue placeholder="Todas Contas" />
-        </SelectTrigger>
-        <SelectContent>
-            <SelectItem value="all">Todas Contas</SelectItem>
-            {accounts.map(acc => (
-                <SelectItem key={acc} value={acc}>{acc}</SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-
-      {/* Date Range Filter */}
-      <Select value={selectedDateRange} onValueChange={onSelectDateRange}>
-        <SelectTrigger className="w-full pl-10 h-10 bg-background border-input">
-             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Calendar size={16} className="text-emerald-500" />
-             </div>
-             <SelectValue placeholder="Período" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="last-7">Últimos 7 Dias</SelectItem>
-          <SelectItem value="last-30">Últimos 30 Dias</SelectItem>
-          <SelectItem value="this-week">Esta Semana</SelectItem>
-          <SelectItem value="last-week">Semana Passada</SelectItem>
-          <SelectItem value="this-month">Este Mês</SelectItem>
-          <SelectItem value="last-month">Mês Passado</SelectItem>
-          <SelectItem value="all">Todo o Período</SelectItem>
-          <SelectItem value="custom">Personalizado</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Custom Date Inputs (Conditional - Appears in the grid if custom is selected) */}
-      {selectedDateRange === 'custom' && (
-        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-300 col-span-1 md:col-span-1">
-            <input
-            type="date"
-            value={customStartDate}
-            onChange={(e) => onCustomStartDateChange(e.target.value)}
-            className="w-full bg-background border border-input text-foreground text-xs font-medium rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-1 focus:ring-ring transition-all h-10"
-            />
-            <span className="text-muted-foreground font-medium text-xs">até</span>
-            <input
-            type="date"
-            value={customEndDate}
-            onChange={(e) => onCustomEndDateChange(e.target.value)}
-            className="w-full bg-background border border-input text-foreground text-xs font-medium rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-1 focus:ring-ring transition-all h-10"
-            />
+      {/* Right: Global Filters Toolbar */}
+      <div className="flex items-center gap-3">
+        
+        {/* 1. Franqueado */}
+        <div className="w-[220px]">
+          <Select
+            placeholder="Todos os Franqueados"
+            value={selectedFranchisee}
+            onChange={(e) => {
+                setSelectedFranchisee(e.target.value);
+                setSelectedClient(''); // Reset client
+            }}
+            options={[{value: '', label: 'Todos Franqueados'}, ...franchisees]}
+          />
         </div>
-      )}
 
-      {/* Filter Badge - Only show if not custom date (to balance grid) */}
-      {selectedDateRange !== 'custom' && (
-         <div className="hidden xl:flex items-center justify-end">
-            {(selectedFranchise !== 'all' || selectedAccount !== 'all' || selectedDateRange !== 'all') && (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 animate-in fade-in zoom-in duration-300">
-                    Filtros Ativos
-                </span>
-            )}
-         </div>
-      )}
+        {/* 2. Cliente */}
+        <div className="w-[220px]">
+          <Select
+            placeholder="Todas as Contas"
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+            options={[{value: '', label: 'Todas Contas'}, ...clients]}
+            disabled={!selectedFranchisee}
+          />
+        </div>
+
+        <div className="h-8 w-px bg-slate-200 mx-2"></div>
+
+        {/* 3. CALENDAR WRAPPER - This fixes the 'not clickable' issue */}
+        <div className="relative isolate z-50"> 
+          <Calendar
+            compact={false}
+            allowClear
+            showTimeInput={false}
+            popoverAlignment="end" // Opens to the left
+            value={dateRange}
+            onChange={setDateRange}
+            presets={{
+              last7: { text: "Últimos 7 dias", start: subDays(new Date(), 7), end: new Date() },
+              last30: { text: "Últimos 30 dias", start: subDays(new Date(), 30), end: new Date() },
+              thisMonth: { text: "Este Mês", start: startOfMonth(new Date()), end: new Date() }
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 };

@@ -7,12 +7,17 @@ import { SettingsView } from './components/SettingsView';
 import { CampaignsView } from './components/CampaignsView';
 import { CreativesView } from './components/CreativesView';
 import { LoginView } from './components/LoginView'; 
+import { DashboardOverview } from './components/DashboardOverview';
+import { DemographicsGeoView } from './components/DemographicsGeoView';
+import { AdsTableView } from './components/AdsTableView';
 import { fetchCampaignData, fetchFranchises, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
+import { RangeValue } from './components/ui/calendar';
+import { subDays, startOfMonth } from 'date-fns';
 
-const REFERENCE_DATE = new Date();
+const REFERENCE_DATE = new Date(); // Or today
 
 export default function App() {
   // --- 1. ALL HOOKS MUST BE DECLARED AT THE TOP ---
@@ -27,14 +32,15 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads'>('dashboard');
 
-  // Filter States
-  const [selectedFranchise, setSelectedFranchise] = useState<string>('all');
-  const [selectedAccount, setSelectedAccount] = useState<string>('all');
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('last-30');
-  const [customStartDate, setCustomStartDate] = useState<string>('2025-12-01');
-  const [customEndDate, setCustomEndDate] = useState<string>('2025-12-31');
+  // New Filter States (RangeValue support)
+  const [selectedFranchise, setSelectedFranchise] = useState<string>('');
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [dateRange, setDateRange] = useState<RangeValue | null>({
+      start: subDays(new Date(), 30),
+      end: new Date()
+  });
 
   // --- 2. EFFECTS ---
 
@@ -45,18 +51,14 @@ export default function App() {
       setAuthLoading(false);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // If logging out, we might want to clear data, but session null will trigger UI change anyway
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Data Fetching (Only if Authenticated)
-  // We keep the effect active but guard execution inside
+  // Data Fetching
   useEffect(() => {
     if (!session) return; 
 
@@ -88,143 +90,52 @@ export default function App() {
 
   // Reset account selection when franchise changes
   useEffect(() => {
-    setSelectedAccount('all');
+    setSelectedAccount('');
   }, [selectedFranchise]);
 
   // --- 3. MEMOS (Derivations) ---
   
-  // Extract unique franchises
-  const franchises = useMemo(() => {
-    return officialFranchises
-        .filter(f => f.active !== false)
-        .map(f => f.name)
-        .sort();
-  }, [officialFranchises]);
-
-  // Extract accounts based on selected franchise
-  const availableAccounts = useMemo(() => {
-    let dataToFilter = data;
-    if (selectedFranchise !== 'all') {
-      dataToFilter = data.filter(d => d.franqueado === selectedFranchise);
-    }
-    const unique = new Set(dataToFilter.map(d => d.account_name));
-    return Array.from(unique).sort();
-  }, [selectedFranchise, data]);
+  // Note: Franchises and Accounts processing moved to Header, but filtering data remains here.
 
   // Filter Component Data
   const filteredData = useMemo(() => {
     return data.filter(d => {
-      const matchFranchise = selectedFranchise === 'all' || d.franqueado === selectedFranchise;
-      const matchAccount = selectedAccount === 'all' || d.account_name === selectedAccount;
+      const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
+      const matchAccount = !selectedAccount || d.account_name === selectedAccount;
       
-      // Date Filtering
+      // Date Filtering using RangeValue
       let matchDate = true;
-      const itemDate = new Date(d.date_start + 'T12:00:00'); 
-      const refDate = new Date(REFERENCE_DATE); 
-      
-      if (selectedDateRange === 'custom') {
-        if (customStartDate && customEndDate) {
-            const start = new Date(customStartDate + 'T00:00:00');
-            const end = new Date(customEndDate + 'T23:59:59');
-            matchDate = itemDate >= start && itemDate <= end;
-        }
-      } else if (selectedDateRange === 'last-7') {
-        const pastDate = new Date(refDate);
-        pastDate.setDate(refDate.getDate() - 7);
-        matchDate = itemDate >= pastDate && itemDate <= refDate;
-      } else if (selectedDateRange === 'last-30') {
-        const pastDate = new Date(refDate);
-        pastDate.setDate(refDate.getDate() - 30);
-        matchDate = itemDate >= pastDate && itemDate <= refDate;
-      } else if (selectedDateRange === 'this-week') {
-        const startOfWeek = new Date(refDate);
-        startOfWeek.setDate(refDate.getDate() - refDate.getDay());
-        matchDate = itemDate >= startOfWeek && itemDate <= refDate;
-      } else if (selectedDateRange === 'last-week') {
-        const startOfLastWeek = new Date(refDate);
-        startOfLastWeek.setDate(refDate.getDate() - refDate.getDay() - 7);
-        const endOfLastWeek = new Date(startOfLastWeek);
-        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
-        matchDate = itemDate >= startOfLastWeek && itemDate <= endOfLastWeek;
-      } else if (selectedDateRange === 'this-month') {
-        const startOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
-        matchDate = itemDate >= startOfMonth && itemDate <= refDate;
-      } else if (selectedDateRange === 'last-month') {
-        const startOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
-        matchDate = itemDate >= startOfLastMonth && itemDate <= endOfLastMonth;
+      if (dateRange?.start && dateRange?.end) {
+          const itemDate = new Date(d.date_start + 'T12:00:00'); 
+          // Compare as start/end of days
+          const start = new Date(dateRange.start); start.setHours(0,0,0,0);
+          const end = new Date(dateRange.end); end.setHours(23,59,59,999);
+          matchDate = itemDate >= start && itemDate <= end;
       }
 
       return matchFranchise && matchAccount && matchDate;
     });
-  }, [selectedFranchise, selectedAccount, selectedDateRange, customStartDate, customEndDate, data]);
+  }, [selectedFranchise, selectedAccount, dateRange, data]);
 
   // Comparison Data Logic
   const comparisonData = useMemo(() => {
-    let prevStart: Date | null = null;
-    let prevEnd: Date | null = null;
-    
-    const subMonth = (d: Date) => {
-        const newDate = new Date(d);
-        newDate.setMonth(d.getMonth() - 1);
-        return newDate;
-    };
+     if (!dateRange?.start || !dateRange?.end) return [];
 
-    const refDate = new Date(REFERENCE_DATE);
+     // Calculate Previous Period
+     const duration = dateRange.end.getTime() - dateRange.start.getTime();
+     const prevEnd = new Date(dateRange.start.getTime() - 86400000); // 1 day before start
+     const prevStart = new Date(prevEnd.getTime() - duration);
 
-    if (selectedDateRange === 'custom') {
-        if (customStartDate && customEndDate) {
-            prevStart = subMonth(new Date(customStartDate + 'T00:00:00'));
-            prevEnd = subMonth(new Date(customEndDate + 'T23:59:59'));
-        }
-    } else if (selectedDateRange === 'last-7') {
-        const currentEnd = new Date(refDate);
-        const currentStart = new Date(refDate);
-        currentStart.setDate(refDate.getDate() - 7);
-        prevStart = subMonth(currentStart);
-        prevEnd = subMonth(currentEnd);
-    } else if (selectedDateRange === 'last-30') {
-        const currentEnd = new Date(refDate);
-        const currentStart = new Date(refDate);
-        currentStart.setDate(refDate.getDate() - 30);
-        prevStart = subMonth(currentStart);
-        prevEnd = subMonth(currentEnd);
-    } else if (selectedDateRange === 'this-week') {
-         const startOfWeek = new Date(refDate);
-         startOfWeek.setDate(refDate.getDate() - refDate.getDay());
-         prevStart = subMonth(startOfWeek);
-         prevEnd = subMonth(refDate);
-    } else if (selectedDateRange === 'last-week') {
-         const startOfLastWeek = new Date(refDate);
-         startOfLastWeek.setDate(refDate.getDate() - refDate.getDay() - 7);
-         const endOfLastWeek = new Date(startOfLastWeek);
-         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
-         prevStart = subMonth(startOfLastWeek);
-         prevEnd = subMonth(endOfLastWeek);
-    } else if (selectedDateRange === 'this-month') {
-         const startOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
-         prevStart = subMonth(startOfMonth);
-         prevEnd = subMonth(refDate);
-    } else if (selectedDateRange === 'last-month') {
-         const startOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
-         const endOfLastMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
-         prevStart = subMonth(startOfLastMonth);
-         prevEnd = subMonth(endOfLastMonth);
-    }
-
-    if (!prevStart || !prevEnd || selectedDateRange === 'all') return [];
-
-    return data.filter(d => {
-       const matchFranchise = selectedFranchise === 'all' || d.franqueado === selectedFranchise;
-       const matchAccount = selectedAccount === 'all' || d.account_name === selectedAccount;
+     return data.filter(d => {
+       const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
+       const matchAccount = !selectedAccount || d.account_name === selectedAccount;
        const itemDate = new Date(d.date_start + 'T12:00:00');
-       const matchDate = itemDate >= prevStart! && itemDate <= prevEnd!;
+       const matchDate = itemDate >= prevStart && itemDate <= prevEnd;
        return matchFranchise && matchAccount && matchDate;
     });
-  }, [selectedFranchise, selectedAccount, selectedDateRange, customStartDate, customEndDate, data]);
+  }, [selectedFranchise, selectedAccount, dateRange, data]);
 
-
-  // --- 4. CONDITIONAL RENDERING (AT THE END) ---
+  // --- 4. CONDITIONAL RENDERING ---
 
   if (authLoading) {
       return (
@@ -238,7 +149,6 @@ export default function App() {
       return <LoginView />;
   }
 
-  // Loading state for DASHBOARD DATA (only show if authenticated and fetching initial data)
   if (loading && data.length === 0) {
     return (
       <div className="flex min-h-screen bg-background items-center justify-center flex-col gap-4">
@@ -249,98 +159,86 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       
-      {/* 1. SIDEBAR DESKTOP */}
-      <div className="hidden lg:flex w-72 flex-col fixed inset-y-0 z-50 border-r bg-card">
-        <Sidebar 
+      {/* 1. SIDEBAR DESKTOP - FIXED */}
+      <aside className="hidden lg:flex w-72 flex-col border-r bg-card h-full">
+         <Sidebar 
           activeView={activeView} 
           setActiveView={setActiveView} 
           isDemoMode={isDemoMode} 
-          className="border-none"
+          className="border-none h-full"
         />
-      </div>
+      </aside>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 flex flex-col min-w-0 lg:pl-72 transition-all duration-300">
+      {/* 2. MAIN CONTENT - COLUMNFLEX */}
+      <div className="flex flex-1 flex-col overflow-hidden h-full">
         
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center h-16 px-6 gap-4 bg-background/80 backdrop-blur-md border-b">
-          <MobileNav activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} />
-          
-          <div className="flex-1">
-             {activeView === 'dashboard' ? (
-                <div className="flex items-center justify-between">
-                   <h2 className="text-lg font-semibold lg:hidden">OP7 Dashboard</h2>
-                   <div className="hidden lg:block w-full">
-                       <DashboardHeader 
-                          franchises={franchises} 
-                          selectedFranchise={selectedFranchise} 
-                          onSelectFranchise={setSelectedFranchise}
-                          accounts={availableAccounts}
-                          selectedAccount={selectedAccount}
-                          onSelectAccount={setSelectedAccount}
-                          selectedDateRange={selectedDateRange}
-                          onSelectDateRange={setSelectedDateRange}
-                          customStartDate={customStartDate}
-                          onCustomStartDateChange={setCustomStartDate}
-                          customEndDate={customEndDate}
-                          onCustomEndDateChange={setCustomEndDate}
-                        />
-                   </div>
-                </div>
-             ) : (
+        {/* HEADER - STICKY/FIXED TOP with HIGH Z-INDEX */}
+        <header className="relative z-50 flex-none">
+           {/* Mobile Nav Integration inside Header Row if needed, or separate */}
+           <div className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
+                <MobileNav activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} />
+                <span className="font-bold">OP7 Dashboard</span>
+           </div>
+
+           {activeView === 'dashboard' ? (
+               <DashboardHeader 
+                  data={data}
+                  selectedFranchisee={selectedFranchise}
+                  setSelectedFranchisee={setSelectedFranchise}
+                  selectedClient={selectedAccount}
+                  setSelectedClient={setSelectedAccount}
+                  dateRange={dateRange}
+                  setDateRange={setDateRange}
+                />
+           ) : (
+             <div className="h-16 flex items-center px-6 bg-white border-b border-slate-200 shadow-sm relative z-40">
                 <h2 className="text-lg font-semibold">
                   {activeView === 'campaigns' ? 'Campanhas' : 
                    activeView === 'creatives' ? 'Criativos' : 
+                   activeView === 'executive' ? 'Visão Executiva' :
+                   activeView === 'demographics' ? 'Públicos' :
+                   activeView === 'ads' ? 'Detalhamento de Anúncios' :
                    activeView === 'settings' ? 'Configurações' : ''}
                 </h2>
-             )}
-          </div>
+             </div>
+           )}
         </header>
 
-        {/* Page Content */}
-        <div className="flex-1 p-6 overflow-auto bg-muted/20">
-          <div className="max-w-7xl mx-auto w-full space-y-6">
+        {/* SCROLLABLE PAGE CONTENT */}
+        <main className="flex-1 overflow-y-auto bg-slate-50/50 p-6 scroll-smooth">
+          <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
             
-            {/* Mobile Header Filter */}
-            {activeView === 'dashboard' && (
-                <div className="lg:hidden mb-4">
-                     <DashboardHeader 
-                          franchises={franchises} 
-                          selectedFranchise={selectedFranchise} 
-                          onSelectFranchise={setSelectedFranchise}
-                          accounts={availableAccounts}
-                          selectedAccount={selectedAccount}
-                          onSelectAccount={setSelectedAccount}
-                          selectedDateRange={selectedDateRange}
-                          onSelectDateRange={setSelectedDateRange}
-                          customStartDate={customStartDate}
-                          onCustomStartDateChange={setCustomStartDate}
-                          customEndDate={customEndDate}
-                          onCustomEndDateChange={setCustomEndDate}
-                        />
-                </div>
-            )}
-
             {isDemoMode && connectionError && (
                 <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">
                     Atenção: Modo Offline. Exibindo dados de exemplo. ({connectionError})
                 </div>
             )}
 
-            {/* VIEW RENDEIRNG */}
-            
+            {/* Views */}
             {activeView === 'dashboard' && (
                 <ManagerialView data={filteredData} comparisonData={comparisonData} />
+            )}
+
+            {activeView === 'executive' && (
+                <DashboardOverview data={filteredData} />
             )}
 
             {activeView === 'campaigns' && (
                 <CampaignsView data={filteredData} />
             )}
 
+            {activeView === 'ads' && (
+                <AdsTableView data={filteredData} />
+            )}
+
             {activeView === 'creatives' && (
                 <CreativesView data={filteredData} />
+            )}
+
+            {activeView === 'demographics' && (
+                <DemographicsGeoView data={filteredData} />
             )}
 
             {activeView === 'settings' && (
@@ -351,8 +249,8 @@ export default function App() {
               &copy; {new Date().getFullYear()} OP7 Performance.
             </footer>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
