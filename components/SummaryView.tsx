@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CampaignData, MetaAdAccount } from '../types';
-import { fetchMetaAccounts } from '../services/supabaseService';
+import { CampaignData, MetaAdAccount, SummaryReportRow } from '../types';
+import { fetchMetaAccounts, fetchSummaryReport } from '../services/supabaseService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
@@ -10,6 +10,7 @@ interface Props {
   data: CampaignData[];
   selectedFranchisee: string; 
   selectedClient: string;
+  dateRange: { from: Date; to: Date } | undefined;
 }
 
 interface AggregatedAccountStats {
@@ -36,343 +37,186 @@ interface SortConfig {
   direction: SortDirection;
 }
 
-export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selectedClient }) => {
-  const [metaAccounts, setMetaAccounts] = useState<MetaAdAccount[]>([]);
+// Formatters
+const fmtCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+const fmtInt = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
+const fmtPct = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(value / 100);
+const fmtDec = (value: number) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
+export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selectedClient, dateRange }) => {
+  const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'spend', direction: 'desc' });
+  const [errorMSG, setErrorMSG] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
 
-  // 1. Fetch Meta Accounts (Live Status & Balance)
+  // Use passed date range or default to last 30 days
+  const { start, end } = useMemo(() => {
+     if (dateRange?.from && dateRange.to) {
+         return { start: dateRange.from, end: dateRange.to };
+     }
+     const e = new Date();
+     const s = new Date();
+     s.setDate(s.getDate() - 30);
+     return { start: s, end: e };
+  }, [dateRange]);
+  
   useEffect(() => {
-    const loadAccounts = async () => {
+    let mounted = true;
+    const loadReport = async () => {
+      setLoading(true);
       try {
-        const accounts = await fetchMetaAccounts();
-        setMetaAccounts(accounts);
-      } catch (error) {
-        console.error("Failed to fetch meta accounts", error);
+        const report = await fetchSummaryReport(start, end);
+        
+        if (mounted) {
+            setSummaryData(report);
+            setErrorMSG(null);
+        }
+      } catch (error: any) {
+        console.error("Summary Load Failed", error);
+        if (mounted) setErrorMSG("Erro ao carregar dados.");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
-    loadAccounts();
-  }, []);
+    loadReport();
+    return () => { mounted = false; };
+  }, [selectedFranchisee, selectedClient, start, end]); 
 
-  // 2. Aggregate Performance Data by Account Name
-  const performanceMap = useMemo(() => {
-    const groups: Record<string, AggregatedAccountStats> = {};
+  const filteredList = useMemo(() => {
+      return summaryData.filter(row => {
+          // UI Filter: Franchise
+          if (selectedFranchisee && row.franquia !== selectedFranchisee) return false;
+          // UI Filter: Account Name matches
+          if (selectedClient && (row.nome_conta !== selectedClient)) return false; 
+          return true;
+      });
+  }, [summaryData, selectedFranchisee, selectedClient]);
 
-    data.forEach(row => {
-      const name = row.account_name;
-      if (!name) return;
-
-      if (!groups[name]) {
-        groups[name] = {
-          account_name: name,
-          spend: 0,
-          purchases: 0,
-          conversations: 0,
-          results: 0,
-          clicks: 0,
-          impressions: 0,
-          reach: 0,
-          cpl: 0, ctr: 0, cpc: 0
-        };
-      }
-
-      groups[name].spend += Number(row.valor_gasto || 0);
-      groups[name].purchases += Number(row.compras || 0);
-      groups[name].conversations += Number(row.msgs_iniciadas || 0);
-      groups[name].clicks += Number(row.cliques_todos || 0);
-      groups[name].impressions += Number(row.impressoes || 0);
-      groups[name].reach += Number(row.alcance || 0); 
-    });
-
-    return Object.entries(groups).reduce((acc, [key, stats]) => {
-      stats.results = stats.purchases + stats.conversations;
-      stats.cpl = stats.results > 0 ? stats.spend / stats.results : 0;
-      stats.ctr = stats.impressions > 0 ? (stats.clicks / stats.impressions) * 100 : 0;
-      stats.cpc = stats.clicks > 0 ? stats.spend / stats.clicks : 0;
-      acc[key] = stats;
-      return acc;
-    }, {} as Record<string, AggregatedAccountStats>);
-
-  }, [data]);
-
-  // 3. Merge & Filter Lists
-  const baseData = useMemo(() => {
-    if (loading) return [];
-    
-    const filteredMetaAccounts = metaAccounts.filter(acc => {
-       const matchFranchise = !selectedFranchisee || acc.franchise_id === selectedFranchisee;
-       const matchClient = !selectedClient || (acc.account_name === selectedClient || acc.display_name === selectedClient);
-       return matchFranchise && matchClient;
-    });
-
-    return filteredMetaAccounts.map(acc => {
-      const perf = performanceMap[acc.account_name] || 
-                   performanceMap[acc.display_name || ''] || 
-                   { 
-                     spend: 0, purchases: 0, conversations: 0, results: 0, 
-                     clicks: 0, impressions: 0, reach: 0, cpl: 0, ctr: 0, cpc: 0 
-                   };
-
-      return {
-        ...acc,
-        period_stats: perf
-      };
-    });
-  }, [metaAccounts, performanceMap, loading, selectedFranchisee, selectedClient]);
-
-  // 4. Calculate Totals (Memoized over baseData)
-  const totals = useMemo(() => {
-    const t = {
-        count: baseData.length,
-        spend: 0,
-        purchases: 0,
-        conversations: 0,
-        results: 0,
-        clicks: 0,
-        impressions: 0,
-        reach: 0,
-        totalGastoLife: 0,
-        saldo: 0,
-        avgCpl: 0,
-        avgCtr: 0,
-        avgCpc: 0
-    };
-
-    baseData.forEach(acc => {
-        t.spend += acc.period_stats.spend;
-        t.purchases += acc.period_stats.purchases;
-        t.conversations += acc.period_stats.conversations;
-        t.results += acc.period_stats.results;
-        t.clicks += acc.period_stats.clicks;
-        t.impressions += acc.period_stats.impressions;
-        t.reach += acc.period_stats.reach;
-        t.totalGastoLife += acc.total_gasto || 0;
-        t.saldo += acc.current_balance || 0;
-    });
-
-    // Weighted Averages
-    t.avgCpl = t.results > 0 ? t.spend / t.results : 0;
-    t.avgCtr = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
-    t.avgCpc = t.clicks > 0 ? t.spend / t.clicks : 0;
-
-    return t;
-  }, [baseData]);
-
-  // 5. Sort Data
   const sortedData = useMemo(() => {
-    if (!sortConfig) return baseData;
-
-    return [...baseData].sort((a, b) => {
-      let valA: any = '';
-      let valB: any = '';
-
-      // Determine Sort Value based on key
-      switch (sortConfig.key) {
-        case 'account_name': 
-            valA = a.display_name || a.account_name;
-            valB = b.display_name || b.account_name;
-            break;
-        case 'spend':
-            valA = a.period_stats.spend;
-            valB = b.period_stats.spend;
-            break;
-        case 'purchases':
-            valA = a.period_stats.purchases;
-            valB = b.period_stats.purchases;
-            break;
-        case 'conversations':
-            valA = a.period_stats.conversations;
-            valB = b.period_stats.conversations;
-            break;
-        case 'results':
-            valA = a.period_stats.results;
-            valB = b.period_stats.results;
-            break;
-        case 'cpl':
-            valA = a.period_stats.cpl;
-            valB = b.period_stats.cpl;
-            break;
-        case 'ctr':
-            valA = a.period_stats.ctr;
-            valB = b.period_stats.ctr;
-            break;
-        case 'cpc':
-            valA = a.period_stats.cpc;
-            valB = b.period_stats.cpc;
-            break;
-        case 'reach':
-            valA = a.period_stats.reach;
-            valB = b.period_stats.reach;
-            break;
-        case 'total_gasto':
-            valA = a.total_gasto || 0;
-            valB = b.total_gasto || 0;
-            break;
-        case 'current_balance':
-            valA = a.current_balance || 0;
-            valB = b.current_balance || 0;
-            break;
-        case 'status':
-            valA = a.status_meta === 'ACTIVE' ? 1 : 0;
-            valB = b.status_meta === 'ACTIVE' ? 1 : 0;
-            break;
-        default:
-            return 0;
-      }
-
-      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
+    if (!sortConfig) return filteredList;
+    return [...filteredList].sort((a, b) => {
+        const valA = (a as any)[sortConfig.key] || 0;
+        const valB = (b as any)[sortConfig.key] || 0;
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
     });
-  }, [baseData, sortConfig]);
+  }, [filteredList, sortConfig]);
 
-  // Sorting Handler
-  const requestSort = (key: string) => {
-    let direction: SortDirection = 'desc'; // Default desc for metrics
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
-      direction = 'asc';
-    }
-    setSortConfig({ key, direction });
-  };
+  // Totals Calculation
+  const totals = useMemo(() => {
+      return filteredList.reduce((acc, row) => ({
+          count: acc.count + 1,
+          investimento: acc.investimento + (row.investimento || 0),
+          compras: acc.compras + (row.compras || 0),
+          leads: acc.leads + (row.leads || 0),
+          conversas: acc.conversas + (row.conversas || 0),
+          clicks: acc.clicks + (row.clicks || 0),
+          reach: acc.reach + (row.alcance || 0),
+          impressoes: acc.impressoes + (row.impressoes || 0),
+          saldo_atual: acc.saldo_atual + (row.saldo_atual || 0)
+      }), {
+          count: 0, investimento: 0, compras: 0, leads: 0, conversas: 0, clicks: 0, reach: 0, impressoes: 0, saldo_atual: 0
+      });
+  }, [filteredList]);
 
+  // Derived Totals
+  const totalResults = totals.compras + totals.leads + totals.conversas;
+  const avgCpl = totals.leads > 0 ? totals.investimento / totals.leads : 0;
+  const avgCpc = totals.clicks > 0 ? totals.investimento / totals.clicks : 0;
+  const avgCpr = totalResults > 0 ? totals.investimento / totalResults : 0;
+  const avgCpm = totals.impressoes > 0 ? (totals.investimento / totals.impressoes) * 1000 : 0;
+  const avgFreq = totals.reach > 0 ? totals.impressoes / totals.reach : 0;
+
+
+  // Helper Components & Render
   const SortIcon = ({ colKey }: { colKey: string }) => {
-     if (sortConfig?.key !== colKey) return <ArrowUpDown size={12} className="text-slate-300 ml-1 opacity-50" />;
-     return sortConfig.direction === 'asc' ? <ArrowUp size={12} className="text-blue-600 ml-1" /> : <ArrowDown size={12} className="text-blue-600 ml-1" />;
-  };
+      if (sortConfig?.key !== colKey) return <ArrowUpDown size={12} className="text-slate-300 ml-1 opacity-50" />;
+      return sortConfig.direction === 'asc' ? <ArrowUp size={12} className="text-blue-600 ml-1" /> : <ArrowDown size={12} className="text-blue-600 ml-1" />;
+   };
+   const requestSort = (key: string) => {
+        let direction: SortDirection = 'desc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') direction = 'asc';
+        setSortConfig({ key, direction });
+   };
 
-  // Formatters
-  const fmtCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  const fmtInt = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
-  const fmtPct = (val: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(val) + '%';
-
-  if (loading) {
-    return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
-  }
+   // Render
+   if (loading) return <div className="h-64 flex items-center justify-center gap-2 text-primary"><Loader2 className="animate-spin" /> Carregando relatório...</div>;
+   if (errorMSG) return <div className="p-8 text-center text-red-500">{errorMSG}</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      
       <div>
-         <h2 className="text-2xl font-bold tracking-tight text-slate-900">Resumo Gerencial</h2>
-         <p className="text-slate-500">Visão consolidada de todas as contas e sua performance no período.</p>
+         <h2 className="text-2xl font-bold tracking-tight text-slate-900">Resumo Gerencial (RPC)</h2>
+         <p className="text-slate-500">Visão consolidada via Banco de Dados (Otimizado).</p>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         <Table>
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                 <TableRow>
-                    <TableHead className="w-[250px] cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('account_name')}>
-                        <div className="flex items-center">Nome da Conta <SortIcon colKey="account_name"/></div>
-                    </TableHead>
-                    <TableHead className="text-right bg-blue-50/50 text-blue-900 font-semibold cursor-pointer hover:bg-blue-100/50" onClick={() => requestSort('spend')}>
-                        <div className="flex items-center justify-end">Investimento <SortIcon colKey="spend"/></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-slate-100" onClick={() => requestSort('purchases')}>
-                        <div className="flex items-center justify-end">Compras <SortIcon colKey="purchases"/></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-slate-100" onClick={() => requestSort('conversations')}>
-                        <div className="flex items-center justify-end">Conversas <SortIcon colKey="conversations"/></div>
-                    </TableHead>
-                    <TableHead className="text-right bg-blue-50/50 text-blue-900 font-semibold cursor-pointer hover:bg-blue-100/50" onClick={() => requestSort('results')}>
-                        <div className="flex items-center justify-end">Resultado <SortIcon colKey="results"/></div>
-                    </TableHead>
-                    <TableHead className="text-right bg-blue-50/50 text-blue-900 font-semibold cursor-pointer hover:bg-blue-100/50" onClick={() => requestSort('cpl')}>
-                        <div className="flex items-center justify-end">CPL <SortIcon colKey="cpl"/></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-slate-100" onClick={() => requestSort('ctr')}>
-                        <div className="flex items-center justify-end">CTR <SortIcon colKey="ctr"/></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-slate-100" onClick={() => requestSort('cpc')}>
-                        <div className="flex items-center justify-end">CPC <SortIcon colKey="cpc"/></div>
-                    </TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-slate-100" onClick={() => requestSort('reach')}>
-                        <div className="flex items-center justify-end">Alcance <SortIcon colKey="reach"/></div>
-                    </TableHead>
-                    <TableHead className="text-center cursor-pointer hover:bg-slate-100" onClick={() => requestSort('status')}>Status Conta</TableHead>
-                    <TableHead className="text-right text-slate-500 cursor-pointer hover:bg-slate-100" onClick={() => requestSort('total_gasto')}>
-                        <div className="flex items-center justify-end">Total Gasto (Life) <SortIcon colKey="total_gasto"/></div>
-                    </TableHead>
-                    <TableHead className="text-right font-medium text-emerald-700 cursor-pointer hover:bg-slate-100" onClick={() => requestSort('current_balance')}>
-                        <div className="flex items-center justify-end">Saldo Atual <SortIcon colKey="current_balance"/></div>
-                    </TableHead>
+                    <TableHead className="w-[200px] cursor-pointer" onClick={() => requestSort('nome_conta')}>Conta <SortIcon colKey="nome_conta"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('investimento')}>Investimento <SortIcon colKey="investimento"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('compras')}>Compras <SortIcon colKey="compras"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('leads')}>Leads <SortIcon colKey="leads"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpl')}>CPL <SortIcon colKey="cpl"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpc')}>CPC <SortIcon colKey="cpc"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpr')}>CPR <SortIcon colKey="cpr"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpm')}>CPM <SortIcon colKey="cpm"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('freq')}>Freq. <SortIcon colKey="freq"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('impressoes')}>Impr. <SortIcon colKey="impressoes"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('clicks')}>Cliques <SortIcon colKey="clicks"/></TableHead>
+                    <TableHead className="text-right cursor-pointer" onClick={() => requestSort('saldo_atual')}>Saldo <SortIcon colKey="saldo_atual"/></TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {sortedData.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">Nenhuma conta encontrada para os filtros selecionados.</TableCell>
+                {sortedData.map(row => {
+                    const rowResults = row.compras + row.leads + row.conversas;
+                    const cpl = row.leads > 0 ? row.investimento / row.leads : 0;
+                    const cpc = row.clicks > 0 ? row.investimento / row.clicks : 0;
+                    const cpr = rowResults > 0 ? row.investimento / rowResults : 0;
+                    const cpm = row.impressoes > 0 ? (row.investimento / row.impressoes) * 1000 : 0;
+                    const freq = row.alcance > 0 ? row.impressoes / row.alcance : 0;
+
+                    return (
+                    <TableRow key={row.meta_account_id} className="hover:bg-slate-50">
+                        <TableCell className="font-bold text-slate-800">
+                            <div className="line-clamp-1" title={row.nome_conta}>{row.nome_conta}</div>
+                            <div className="text-[10px] text-slate-400 font-normal font-mono">{row.meta_account_id}</div>
+                        </TableCell>
+                        <TableCell className="text-right">{fmtCurrency(row.investimento)}</TableCell>
+                        <TableCell className="text-right">{row.compras}</TableCell>
+                        <TableCell className="text-right">{row.leads}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtCurrency(cpl)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtCurrency(cpc)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtCurrency(cpr)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtCurrency(cpm)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtDec(freq)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtInt(row.impressoes)}</TableCell>
+                        <TableCell className="text-right text-slate-500">{fmtInt(row.clicks)}</TableCell>
+                        <TableCell className={cn("text-right font-bold", row.saldo_atual < 100 ? "text-red-600" : "text-emerald-700")}>{fmtCurrency(row.saldo_atual)}</TableCell>
                     </TableRow>
-                ) : (
-                    sortedData.map((row) => (
-                        <TableRow key={row.account_id} className="hover:bg-slate-50">
-                            <TableCell className="font-bold text-slate-800">
-                                {row.display_name || row.account_name}
-                                <div className="text-[10px] text-slate-400 font-normal font-mono">{row.account_id}</div>
-                            </TableCell>
-                            
-                            <TableCell className="text-right bg-blue-50/30 font-medium text-slate-900">
-                                {fmtCurrency(row.period_stats.spend)}
-                            </TableCell>
-                            
-                            <TableCell className="text-right">{fmtInt(row.period_stats.purchases)}</TableCell>
-                            <TableCell className="text-right">{fmtInt(row.period_stats.conversations)}</TableCell>
-                            
-                            <TableCell className="text-right bg-blue-50/30 font-bold text-blue-700">
-                                {fmtInt(row.period_stats.results)}
-                            </TableCell>
-                            
-                            <TableCell className="text-right bg-blue-50/30 font-medium text-slate-900">
-                                {fmtCurrency(row.period_stats.cpl)}
-                            </TableCell>
-                            
-                            <TableCell className="text-right text-slate-600">{fmtPct(row.period_stats.ctr)}</TableCell>
-                            <TableCell className="text-right text-slate-600">{fmtCurrency(row.period_stats.cpc)}</TableCell>
-                            <TableCell className="text-right text-slate-600 text-xs">{fmtInt(row.period_stats.reach)}</TableCell>
-                            
-                            <TableCell className="text-center">
-                                {row.status_meta && row.status_meta !== 'ACTIVE' ? (
-                                    <Badge variant="destructive" className="whitespace-nowrap flex items-center gap-1 justify-center max-w-[120px] mx-auto">
-                                        <AlertCircle size={10} />
-                                        {row.motivo_bloqueio || 'Bloqueado'}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                                        Ativo
-                                    </Badge>
-                                )}
-                            </TableCell>
-                            
-                            <TableCell className="text-right text-slate-400 text-xs">
-                                {fmtCurrency(row.total_gasto || 0)}
-                            </TableCell>
-                            
-                            <TableCell className={cn("text-right font-bold", row.current_balance < 100 ? "text-red-600" : "text-emerald-700")}>
-                                {fmtCurrency(row.current_balance)}
-                            </TableCell>
-                        </TableRow>
-                    ))
-                )}
+                    );
+                })}
             </TableBody>
             <TableFooter className="bg-slate-100 font-bold border-t-2 border-slate-300">
                 <TableRow>
-                     <TableCell className="text-slate-900">{totals.count} Clientes</TableCell>
-                     <TableCell className="text-right bg-blue-100/50 text-blue-900">{fmtCurrency(totals.spend)}</TableCell>
-                     <TableCell className="text-right text-slate-900">{fmtInt(totals.purchases)}</TableCell>
-                     <TableCell className="text-right text-slate-900">{fmtInt(totals.conversations)}</TableCell>
-                     <TableCell className="text-right bg-blue-100/50 text-blue-900">{fmtInt(totals.results)}</TableCell>
-                     <TableCell className="text-right bg-blue-100/50 text-blue-900">{fmtCurrency(totals.avgCpl)}</TableCell>
-                     <TableCell className="text-right text-slate-900">{fmtPct(totals.avgCtr)}</TableCell>
-                     <TableCell className="text-right text-slate-900">{fmtCurrency(totals.avgCpc)}</TableCell>
-                     <TableCell className="text-right text-slate-900 text-xs">{fmtInt(totals.reach)}</TableCell>
-                     <TableCell className="text-center"></TableCell>
-                     <TableCell className="text-right text-slate-500 text-xs">{fmtCurrency(totals.totalGastoLife)}</TableCell>
-                     <TableCell className={cn("text-right", totals.saldo < 1000 ? "text-red-700" : "text-emerald-800")}>{fmtCurrency(totals.saldo)}</TableCell>
+                     <TableCell>Total ({totals.count})</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(totals.investimento)}</TableCell>
+                     <TableCell className="text-right">{totals.compras}</TableCell>
+                     <TableCell className="text-right">{totals.leads}</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(avgCpl)}</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(avgCpc)}</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(avgCpr)}</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(avgCpm)}</TableCell>
+                     <TableCell className="text-right">{fmtDec(avgFreq)}</TableCell>
+                     <TableCell className="text-right">{fmtInt(totals.impressoes)}</TableCell>
+                     <TableCell className="text-right">{fmtInt(totals.clicks)}</TableCell>
+                     <TableCell className="text-right">{fmtCurrency(totals.saldo_atual)}</TableCell>
                 </TableRow>
             </TableFooter>
         </Table>
-      </div>
+       </div>
     </div>
   );
 };

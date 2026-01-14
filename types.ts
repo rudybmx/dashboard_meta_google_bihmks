@@ -125,3 +125,17 @@ export interface UserFormData {
   assigned_franchise_ids: string[];
   assigned_account_ids: string[];
 }
+
+export interface SummaryReportRow {
+  meta_account_id: string;
+  nome_conta: string;
+  franquia: string;
+  saldo_atual: number;
+  investimento: number;
+  leads: number;
+  compras: number;
+  conversas: number;
+  clicks: number;
+  impressoes: number;
+  alcance: number;
+}

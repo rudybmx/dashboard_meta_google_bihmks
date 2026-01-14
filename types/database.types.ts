@@ -299,6 +299,39 @@ export type Database = {
         }
         Relationships: []
       }
+      perfil_acesso: {
+        Row: {
+          id: string
+          created_at: string
+          nome: string | null
+          email: string | null
+          role: string | null
+          ativo: boolean | null
+          assigned_franchise_ids: string[] | null
+          assigned_account_ids: string[] | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          nome?: string | null
+          email?: string | null
+          role?: string | null
+          ativo?: boolean | null
+          assigned_franchise_ids?: string[] | null
+          assigned_account_ids?: string[] | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          nome?: string | null
+          email?: string | null
+          role?: string | null
+          ativo?: boolean | null
+          assigned_franchise_ids?: string[] | null
+          assigned_account_ids?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_dashboard_unified: {
@@ -354,7 +387,79 @@ export type Database = {
         Relationships: []
       }
     }
-    Functions: {}
+    Functions: {
+      get_managerial_data: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_franchise_filter?: string[] | null
+          p_account_filter?: string[] | null
+        }
+        Returns: {
+          meta_account_id: string
+          nome_conta: string
+          franquia: string
+          saldo_atual: number
+          investimento: number
+          leads: number
+          compras: number
+          conversas: number
+          clicks: number
+          impressoes: number
+          alcance: number
+        }[]
+      }
+      get_kpi_comparison: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_prev_start_date: string
+          p_prev_end_date: string
+          p_franchise_filter?: string[] | null
+          p_account_filter?: string[] | null
+        }
+        Returns: {
+          spend: number
+          impressions: number
+          clicks: number
+          leads: number
+          purchases: number
+          conversations: number
+          prev_spend: number
+          prev_impressions: number
+          prev_clicks: number
+          prev_leads: number
+          prev_purchases: number
+          prev_conversations: number
+        }[]
+      }
+      get_summary_report: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_franchise_filter?: string[] | null
+          p_account_filter?: string[] | null
+        }
+        Returns: {
+          franchise_name: string
+          account_id: string
+          account_name: string
+          status_interno: string
+          client_visibility: boolean
+          current_balance: number
+          spend: number
+          impressoes: number
+          clicks: number
+          alcance: number
+          compras: number
+          msgs_iniciadas: number
+          cpl: number
+          ctr: number
+          cpc: number
+          total_gasto: number
+        }[]
+      }
+    }
     Enums: {}
     CompositeTypes: {}
   }

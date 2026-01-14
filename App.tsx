@@ -11,9 +11,9 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { DemographicsGeoView } from './components/DemographicsGeoView';
 import { AdsTableView } from './components/AdsTableView';
 import { SummaryView } from './components/SummaryView';
-import { fetchCampaignData, fetchFranchises, fetchKPIComparison, supabase } from './services/supabaseService';
+import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchUserProfile, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { RangeValue } from './components/ui/calendar';
 import { subDays, startOfMonth } from 'date-fns';
@@ -55,28 +55,53 @@ export default function App() {
 
     const initAuth = async () => {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            console.log("DEBUG: Init Auth Started");
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error) {
+                // Handle Refresh Token Error specifically
+                if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
+                    console.warn("DEBUG: Stale session detected. Clearing...", error);
+                    await supabase.auth.signOut();
+                    localStorage.removeItem('sb-eylnuxgwxlhyasigvzdj-auth-token'); // Clear specific token if known, or let signOut handle it
+                    setSession(null);
+                    setAuthLoading(false);
+                    return;
+                }
+                throw error;
+            }
+
+            console.log("DEBUG: Session Retrieved", session?.user?.email);
+
             if (mounted) setSession(session);
             
-            if (session?.user) {
-                // Safe fetch - prevent crashing if profile doesn't exist or RLS blocks
-                const { data: profile, error } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+            if (session?.user?.email) {
+                // Safe fetch from new central table
+                console.log("DEBUG: Fetching User Profile...");
                 
-                if (error) {
-                    console.warn("Error fetching profile on init:", error);
-                }
+                // Safety Timeout: If fetch takes > 5s, proceed as null (Guest/Login)
+                const timeoutPromise = new Promise(resolve => setTimeout(() => {
+                    console.warn("DEBUG: Profile fetch timed out!");
+                    resolve(null);
+                }, 5000));
+
+                const profile = await Promise.race([
+                    fetchUserProfile(session.user.email),
+                    timeoutPromise
+                ]);
                 
-                if (mounted && profile) {
-                    setUserProfile(profile);
+                console.log("DEBUG: Profile Result:", profile);
+
+                if (mounted) {
+                    setUserProfile(profile as any);
                 }
             }
         } catch (error) {
             console.error("Auth init failed:", error);
+            // Force logout on critical failures to allow re-login
+            await supabase.auth.signOut();
         } finally {
+            console.log("DEBUG: Setting authLoading = false");
             if (mounted) setAuthLoading(false);
         }
     };
@@ -87,13 +112,9 @@ export default function App() {
       if (!mounted) return;
       setSession(session);
       
-      if (session?.user) {
-         const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-         if (mounted) setUserProfile(profile);
+      if (session?.user?.email) {
+          const profile = await fetchUserProfile(session.user.email);
+          if (mounted) setUserProfile(profile);
       } else {
          if (mounted) setUserProfile(null);
       }
@@ -191,31 +212,40 @@ export default function App() {
   // --- 4. CONDITIONAL RENDERING ---
 
   // --- 4. DATA SECURITY & AUTOMATION ---
+  
+  // 1. Compute Available Franchises based on Permissions
+  const availableFranchises = useMemo(() => {
+     if (!userProfile) return [];
+     
+     // Admin see all
+     if (userProfile.role === 'admin' || userProfile.role === 'executive') {
+         return officialFranchises;
+     }
+
+     // Clients see none (they filter by Account)
+     if (userProfile.role === 'client') {
+         return [];
+     }
+
+     // Franchisees / Multi: Filter by Assigned IDs
+     // We match IDs to the official list to get Names
+     const assignedIds = userProfile.assigned_franchise_ids || [];
+     return officialFranchises.filter(f => assignedIds.includes(f.id));
+  }, [userProfile, officialFranchises]);
+
+  // 2. Auto-Select & Lock Logic
   useEffect(() => {
-    // Auto-Select Franchise for 'Franqueado' Role
-    if (userProfile && userProfile.role === 'franqueado' && userProfile.assigned_franchise_ids?.length > 0) {
-        // We need to match the ID to the Name because the legacy system uses Name as ID in dropdowns
-        // Or if 'assigned_franchise_ids' contains the ID, and we have the list available.
-        // Assuming the ID in profile maps to the 'franqueado' column logic which seems to be ID-based in legacy views?
-        // Actually, looking at `fetchCampaignData`, it returns `franqueado` column.
-        // Let's assume the ID matches. IF NOT, we might need a mapping.
+    // If only one franchise is available, enforce it.
+    if (availableFranchises.length === 1) {
+        const onlyFranchise = availableFranchises[0];
         
-        // Simpler approach: If the user has access to ONLY ONE franchise (which is true for franqueado),
-        // and we have data loaded, just pick the first available franchise in the data.
-        
-        // BETTER: Use the ID from profile to find the name in `officialFranchises` list.
-        if (officialFranchises.length > 0) {
-            const myFranchiseId = userProfile.assigned_franchise_ids[0];
-            const found = officialFranchises.find(f => f.id === myFranchiseId);
-            
-            // CRITICAL FIX: The Dashboard filters by NAME (string), not ID.
-            // We must set the Name found from the ID.
-            if (found && selectedFranchise !== found.name) { 
-               setSelectedFranchise(found.name); 
-            }
+        // Critical: Match by NAME because RPC expects Text Filter
+        if (selectedFranchise !== onlyFranchise.name) {
+            console.log("DEBUG: Auto-Selecting Single Franchise:", onlyFranchise.name);
+            setSelectedFranchise(onlyFranchise.name);
         }
     }
-  }, [userProfile, officialFranchises, selectedFranchise]);
+  }, [availableFranchises, selectedFranchise]);
 
   if (authLoading || (session && !userProfile)) {
        return (
@@ -294,7 +324,9 @@ export default function App() {
                 setSelectedClient={setSelectedAccount}
                 dateRange={dateRange}
                 setDateRange={setDateRange}
-                isLocked={userProfile?.role === 'franqueado'}
+                isLocked={availableFranchises.length === 1 && userProfile?.role !== 'admin'}
+                availableFranchises={availableFranchises}
+                userRole={userProfile?.role}
               />
            )}
         </header>
@@ -315,6 +347,7 @@ export default function App() {
                     data={filteredData} 
                     selectedFranchisee={selectedFranchise}
                     selectedClient={selectedAccount}
+                    dateRange={dateRange}
                 />
             )}
 
@@ -323,6 +356,8 @@ export default function App() {
                     data={filteredData} 
                     comparisonData={comparisonData} 
                     kpiData={kpiRpcData} // Pass the RPC data
+                    selectedFranchisee={selectedFranchise}
+                    selectedClient={selectedAccount}
                 />
             )}
 
@@ -346,18 +381,41 @@ export default function App() {
                 <DemographicsGeoView data={filteredData} />
             )}
 
-            {activeView === 'settings' && (
-                (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? (
-                    <SettingsView />
-                ) : (
-                    <div className="flex h-64 items-center justify-center flex-col gap-2 text-slate-400">
-                        <Loader2 className="animate-spin" /> 
-                        <span>Verificando permissões...</span>
-                        {/* Fallback instant if loaded */}
-                        {userProfile && <span className="text-red-500 font-bold border border-red-200 bg-red-50 px-4 py-2 rounded-lg">Acesso Negado</span>}
+            {activeView === 'settings' && (() => {
+                // DEBUG: Audit user role for access issues
+                console.log("DEBUG AUTH VIEW:", { 
+                    role: userProfile?.role, 
+                    email: userProfile?.email,
+                    permissions: userProfile?.permissions 
+                });
+
+                const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'executive';
+
+                if (hasAccess) {
+                    return <SettingsView />;
+                }
+
+                // Access Denied State
+                return (
+                    <div className="flex h-[60vh] w-full items-center justify-center">
+                        <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center mb-2">
+                                <Shield className="h-6 w-6 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900">Acesso Restrito</h3>
+                            <p className="text-slate-500">
+                                Seu perfil ({userProfile?.role || 'Visitante'}) não possui permissão para acessar as configurações do sistema.
+                            </p>
+                            <button 
+                                onClick={() => setActiveView('dashboard')}
+                                className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                            >
+                                Voltar ao Dashboard
+                            </button>
+                        </div>
                     </div>
-                )
-            )}
+                );
+            })()}
            
             <footer className="text-center text-muted-foreground text-xs py-8">
               &copy; {new Date().getFullYear()} OP7 Performance.

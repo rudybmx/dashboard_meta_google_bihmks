@@ -20,44 +20,42 @@ interface Props {
   data: CampaignData[];
   comparisonData?: CampaignData[];
   kpiData?: KPIData | null;
+  selectedFranchisee: string;
+  selectedClient: string;
 }
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
-export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpiData }) => {
+export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpiData, selectedFranchisee, selectedClient }) => {
   const [totalBalance, setTotalBalance] = useState<number>(0);
 
-  // Fetch and Filter Balance Data
+  // Fetch and Filter Balance Data (Date Range Independent)
   useEffect(() => {
+     let mounted = true;
      const loadBalance = async () => {
         try {
             const allAccounts = await fetchMetaAccounts();
             
-            // Extract Unique Accounts visible in the current filtered 'data'
-            const visibleAccounts = new Set(data.map(d => d.account_name));
-            
-            // Filter Meta Accounts: Sum balance only if account matches name (or ID if we had it mapped)
-            // Fallback: If data is empty (no campaigns), we might still want to show balance if Filter is active?
-            // The prompt asks to "Only sum the current_balance of accounts that exist in the current filtered data"
-            
             const filteredBalance = allAccounts
-                .filter(acc => visibleAccounts.has(acc.account_name) || visibleAccounts.has(acc.display_name || ''))
+                .filter(acc => {
+                    const matchFranchise = !selectedFranchisee || acc.franchise_id === selectedFranchisee;
+                    // Check against both account_name and display_name for robustness
+                    const matchClient = !selectedClient || (acc.account_name === selectedClient || acc.display_name === selectedClient);
+                    return matchFranchise && matchClient;
+                })
                 .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
             
-            setTotalBalance(filteredBalance);
+            if (mounted) setTotalBalance(filteredBalance);
 
         } catch (err) {
             console.error("Failed to load balance", err);
         }
      };
 
-     if (data.length > 0) {
-        loadBalance();
-     } else {
-        setTotalBalance(0);
-     }
-  }, [data]);
+     loadBalance();
+     return () => { mounted = false; };
+  }, [selectedFranchisee, selectedClient]);
   
   // Aggregate Weekly Data
   const weeklyData = useMemo(() => {
