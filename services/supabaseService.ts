@@ -13,28 +13,92 @@ type MetaAccountUpdate = Database['public']['Tables']['tb_meta_ads_contas']['Upd
 // Tabela/View no Supabase
 const VIEW_NAME = 'vw_dashboard_unified';
 
-export const fetchCampaignData = async (): Promise<{ data: CampaignData[], isMock: boolean, error: string | null }> => {
+import { getPreviousPeriod, formatDateForDB } from '../lib/dateUtils';
+
+// ... (existing fetchCampaignData logic tailored for Charts/Table remains)
+
+export const fetchCampaignData = async (
+  startDate: Date, 
+  endDate: Date
+): Promise<{ 
+  current: CampaignData[], 
+  previous: CampaignData[], 
+  isMock: boolean, 
+  error: string | null 
+}> => {
+  // We keep this function to populate the "Charts" and "Tables" which need detailed rows.
+  // But for the TOP CARDS (KPIs), we will switch to using 'fetchKPIComparison'.
+  // However, keeping dual query here is fine as fallback or for charts that need comparison series.
+  // For safety and performance, let's revert slightly to just fetching CURRENT detailed data here? 
+  // No, let's keep it as is for "Managerial View" charts (Funnel etc might use comparison), 
+  // but we will ADD the specific RPC call for the Cards.
+  // ... (keeping implementation as is for now)
   try {
-    // Busca direta da View com dados já tratados
-    // O tipo é inferido automaticamente do cliente tipado
-    const { data, error } = await supabase
-      .from(VIEW_NAME)
-      .select('*');
+    const { start: prevStart, end: prevEnd } = getPreviousPeriod(startDate, endDate);
+    const currentStartStr = formatDateForDB(startDate);
+    const currentEndStr = formatDateForDB(endDate);
+    const prevStartStr = formatDateForDB(prevStart);
+    const prevEndStr = formatDateForDB(prevEnd);
 
-    // Se houver erro de API
-    if (error) {
-      console.error('Supabase API Error:', JSON.stringify(error, null, 2));
-      throw new Error(`Erro Supabase: ${error.message} (${error.code || 'Unknown Code'})`);
+    const { data: { session } } = await supabase.auth.getSession();
+    let assignedFranchises : string[] = [];
+    let isAdmin = false;
+
+    if (session?.user) {
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role, assigned_franchise_ids')
+            .eq('id', session.user.id)
+            .single();
+        if (profile) {
+            isAdmin = profile.role === 'admin' || profile.role === 'executive';
+            assignedFranchises = profile.assigned_franchise_ids || [];
+        }
     }
 
-    // Se a tabela/view estiver vazia
-    if (!data || data.length === 0) {
-      console.warn(`View '${VIEW_NAME}' está vazia. Usando dados de teste.`);
-      return { data: MOCK_DATA, isMock: true, error: 'Tabela vazia' };
+    let allowedFranchiseNames: string[] = [];
+    if (assignedFranchises.length > 0 && !isAdmin) {
+        const { data: nameData } = await supabase.from('tb_franqueados').select('nome').in('id', assignedFranchises);
+        if (nameData) allowedFranchiseNames = nameData.map(f => f.nome).filter(n => n !== null) as string[];
     }
 
-    // Map DBRow (nullable) -> CampaignData (strict)
-    const mappedData: CampaignData[] = data.map((row: ViewRow) => ({
+    // Helper to build a query
+    const buildQuery = (start: string, end: string) => {
+        let q = supabase.from(VIEW_NAME).select('*')
+            .gte('date_start', start)
+            .lte('date_start', end);
+        if (!isAdmin && allowedFranchiseNames.length > 0) {
+            q = q.in('franqueado', allowedFranchiseNames);
+        } else if (!isAdmin && assignedFranchises.length > 0 && allowedFranchiseNames.length === 0) {
+            q = q.in('franqueado', ['__NO_ACCESS__']);
+        } else if (!isAdmin && assignedFranchises.length === 0 && session) {
+            q = q.in('franqueado', ['__NO_ACCESS__']);
+        }
+        return q;
+    };
+
+    const [currRes, prevRes] = await Promise.all([
+        buildQuery(currentStartStr, currentEndStr),
+        buildQuery(prevStartStr, prevEndStr)
+    ]);
+
+    // ... (rest of mapper logic)
+    // DUPLICATED FOR BREVITY IN TOOL CALL - ASSUME CONTEXT IS KEPT
+    // ...
+    
+    // (Actual logic needs to be fully provided if I'm replacing the block. 
+    // I will assume the previous implementation is fine, and I'll APPEND the new function after it).
+    // Wait, the tool is replace_file_content. I should REPLACE the whole block if I edit it.
+    // Actually, I will just ADD the new function at the end of the file or after fetchCampaignData.
+    
+    // Re-returning the full implementation as defined previously to allow safe replacement:
+    if (currRes.error) throw new Error(`Current Query Error: ${currRes.error.message}`);
+    if (prevRes.error) throw new Error(`Previous Query Error: ${prevRes.error.message}`);
+
+    const currentDataRaw = currRes.data || [];
+    const previousDataRaw = prevRes.data || [];
+
+    const mapRow = (row: ViewRow): CampaignData => ({
       unique_id: row.unique_id || `gen-${Math.random()}`,
       franqueado: row.franqueado || '',
       account_id: row.account_id || '',
@@ -45,8 +109,6 @@ export const fetchCampaignData = async (): Promise<{ data: CampaignData[], isMoc
       adset_name: row.adset_name || undefined,
       ad_name: row.ad_name || undefined,
       objective: row.objective || undefined,
-
-      // Numeric Fields (Handle nulls with 0)
       valor_gasto: row.valor_gasto || 0,
       cpc: row.cpc || 0,
       ctr: row.ctr || 0,
@@ -64,8 +126,6 @@ export const fetchCampaignData = async (): Promise<{ data: CampaignData[], isMoc
       msgs_novos_contatos: row.msgs_novos_contatos || 0,
       msgs_profundidade_2: row.msgs_profundidade_2 || 0,
       msgs_profundidade_3: row.msgs_profundidade_3 || 0,
-
-      // Strings
       target_plataformas: row.target_plataformas || '',
       target_interesses: row.target_interesses || undefined,
       target_familia: row.target_familia || undefined,
@@ -78,26 +138,77 @@ export const fetchCampaignData = async (): Promise<{ data: CampaignData[], isMoc
       target_brand_safety: row.target_brand_safety || undefined,
       target_posicao_fb: row.target_posicao_fb || undefined,
       target_posicao_ig: row.target_posicao_ig || undefined,
-      
-      // Numbers nullable
       target_idade_min: row.target_idade_min || undefined,
       target_idade_max: row.target_idade_max || undefined,
-
-      // Creative
       ad_image_url: row.ad_image_url || undefined,
       ad_title: row.ad_title || undefined,
       ad_body: row.ad_body || undefined,
       ad_destination_url: row.ad_destination_url || undefined,
       ad_cta: row.ad_cta || undefined,
       ad_post_link: row.ad_post_link || undefined
-    }));
+    });
 
-    return { data: mappedData, isMock: false, error: null };
+    return { 
+        current: currentDataRaw.map(mapRow),
+        previous: previousDataRaw.map(mapRow),
+        isMock: false, 
+        error: null 
+    };
 
   } catch (err: any) {
     console.error('Falha ao buscar dados do Supabase:', err);
-    return { data: MOCK_DATA, isMock: true, error: err.message || 'Erro desconhecido' };
+    return { current: [], previous: [], isMock: true, error: err.message || 'Erro desconhecido' };
   }
+};
+
+/**
+ * Fetches aggregated KPI comparison directly from Database RPC.
+ * Guaranteed to be accurate for MoM calculations.
+ */
+export const fetchKPIComparison = async (startDate: Date, endDate: Date) => {
+    try {
+        const { start: prevStart, end: prevEnd } = getPreviousPeriod(startDate, endDate);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // RBAC logic
+        let franchiseFilter: string[] | null = null;
+        if (session?.user) {
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('role, assigned_franchise_ids')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profile && profile.role !== 'admin' && profile.role !== 'executive') {
+                const assigned = profile.assigned_franchise_ids || [];
+                if (assigned.length > 0) {
+                     const { data: nameData } = await supabase.from('tb_franqueados').select('nome').in('id', assigned);
+                     if (nameData) franchiseFilter = nameData.map(f => f.nome).filter(Boolean) as string[];
+                } else {
+                    franchiseFilter = ['__NO_ACCESS__']; 
+                }
+            }
+        }
+
+        const { data, error } = await supabase.rpc('get_kpi_comparison', {
+            p_start_date: formatDateForDB(startDate),
+            p_end_date: formatDateForDB(endDate),
+            p_prev_start_date: formatDateForDB(prevStart),
+            p_prev_end_date: formatDateForDB(prevEnd),
+            p_franchise_filter: franchiseFilter
+        });
+
+        if (error) {
+            console.error("KPI RPC Error:", error);
+            return null; // Fallback to frontend calc
+        }
+
+        return data[0]; // Returns single row { current_spend, prev_spend... }
+
+    } catch (err) {
+        console.error("KPI Fetch Failed:", err);
+        return null;
+    }
 };
 
 export const fetchAccountsConfig = async () => {
@@ -131,6 +242,25 @@ export const addAccountConfig = async (config: AccountConfigInsert) => {
     return data;
 };
 
+// Helper to safely parse localized currency strings (PT-BR or US) or numbers
+const safeFloat = (val: string | number | null | undefined): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') return val;
+    
+    // Clean string
+    let str = String(val).trim();
+    if (str.startsWith('R$')) str = str.replace('R$', '').trim();
+    
+    // Heuristic: If it has a comma, assume PT-BR (1.000,00)
+    // We only strip dots if a comma is present, protecting "1000.50" (US)
+    if (str.includes(',')) {
+       str = str.replace(/\./g, '').replace(',', '.');
+    } 
+    // Else, assume standard float (1000.00) or integer, so do NOT strip dots.
+    
+    return parseFloat(str) || 0;
+};
+
 // BM Settings (tb_meta_ads_contas)
 export const fetchMetaAccounts = async () => {
     const { data, error } = await supabase
@@ -152,11 +282,11 @@ export const fetchMetaAccounts = async () => {
         franchise_id: row.franqueado || '', // Storing Name as ID/Link for now based on legacy text column
         status: (row.status_interno === 'removed' ? 'removed' : 'active') as 'removed' | 'active',
         client_visibility: row.client_visibility ?? true, // Default true
-        current_balance: parseFloat((row.saldo_balanco || '0').replace('R$', '').replace('.', '').replace(',', '.').trim()) || 0,
+        current_balance: safeFloat(row.saldo_balanco),
         last_sync: row.updated_at || new Date().toISOString(),
         status_meta: row.status_meta || undefined,
         motivo_bloqueio: row.motivo_bloqueio || undefined,
-        total_gasto: parseFloat(String(row.total_gasto || '0').replace(/[^0-9,.-]+/g, "").replace('.', '').replace(',', '.')) || 0,
+        total_gasto: safeFloat(row.total_gasto),
         status_interno: row.status_interno || 'A Classificar'
     }));
 };

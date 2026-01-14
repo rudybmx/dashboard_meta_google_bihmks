@@ -14,6 +14,7 @@ interface DashboardHeaderProps {
   setSelectedClient: (val: string) => void;
   dateRange: RangeValue | null;
   setDateRange: (range: RangeValue | null) => void;
+  isLocked?: boolean; 
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -24,7 +25,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   selectedClient,
   setSelectedClient,
   dateRange,
-  setDateRange
+  setDateRange,
+  isLocked = false
 }) => {
   
   // 1. Extract Unique Franchisees
@@ -68,7 +70,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 setSelectedClient(''); // Reset client
             }}
             options={[{value: '', label: 'Todos Franqueados'}, ...franchisees]}
+            disabled={isLocked}
           />
+          {isLocked && <div className="absolute top-1/2 right-8 -translate-y-1/2 pointer-events-none text-slate-400"><Filter size={12} className="opacity-50"/></div>}
         </div>
 
         {/* 2. Cliente */}

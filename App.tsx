@@ -11,7 +11,7 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { DemographicsGeoView } from './components/DemographicsGeoView';
 import { AdsTableView } from './components/AdsTableView';
 import { SummaryView } from './components/SummaryView';
-import { fetchCampaignData, fetchFranchises, supabase } from './services/supabaseService';
+import { fetchCampaignData, fetchFranchises, fetchKPIComparison, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2 } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
@@ -25,6 +25,7 @@ export default function App() {
 
   // Auth States
   const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null); // Store full profile
   const [authLoading, setAuthLoading] = useState(true);
 
   // App Data States
@@ -34,6 +35,8 @@ export default function App() {
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary'>('dashboard');
+  const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
+  const [kpiRpcData, setKpiRpcData] = useState<any>(null); // New State for RPC Data
 
   // New Filter States (RangeValue support)
   const [selectedFranchise, setSelectedFranchise] = useState<string>('');
@@ -46,17 +49,60 @@ export default function App() {
   // --- 2. EFFECTS ---
 
   // Auth Initialization
+  // Auth Initialization & Profile Fetch
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let mounted = true;
+
+    const initAuth = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (mounted) setSession(session);
+            
+            if (session?.user) {
+                // Safe fetch - prevent crashing if profile doesn't exist or RLS blocks
+                const { data: profile, error } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (error) {
+                    console.warn("Error fetching profile on init:", error);
+                }
+                
+                if (mounted && profile) {
+                    setUserProfile(profile);
+                }
+            }
+        } catch (error) {
+            console.error("Auth init failed:", error);
+        } finally {
+            if (mounted) setAuthLoading(false);
+        }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
       setSession(session);
-      setAuthLoading(false);
+      
+      if (session?.user) {
+         const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+         if (mounted) setUserProfile(profile);
+      } else {
+         if (mounted) setUserProfile(null);
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, []);
 
   // Data Fetching
@@ -66,12 +112,24 @@ export default function App() {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [campaignResult, franchiseList] = await Promise.all([
-             fetchCampaignData(),
-             fetchFranchises()
+        // Ensure dates are valid
+        const start = dateRange?.start || subDays(new Date(), 30);
+        const end = dateRange?.end || new Date();
+
+        const [campaignResult, franchiseList, kpiResult] = await Promise.all([
+             fetchCampaignData(start, end),
+             fetchFranchises(),
+             fetchKPIComparison(start, end)
         ]);
         
-        setData(campaignResult.data);
+        console.log("DEBUG: Dates", { start, end });
+        console.log("DEBUG: KPI RPC Result", kpiResult);
+        console.log("DEBUG: Comparison Data (Dual Query)", campaignResult.previous?.length);
+
+        setData(campaignResult.current);
+        setFormattedComparisonData(campaignResult.previous);
+        setKpiRpcData(kpiResult);
+
         setOfficialFranchises(franchiseList);
         setIsDemoMode(campaignResult.isMock);
         
@@ -87,7 +145,7 @@ export default function App() {
     };
 
     loadData();
-  }, [session]); 
+  }, [session, dateRange]); // Re-fetch when Date Range changes!
 
   // Reset account selection when franchise changes
   useEffect(() => {
@@ -97,6 +155,7 @@ export default function App() {
   // --- 3. MEMOS (Derivations) ---
   
   // Note: Franchises and Accounts processing moved to Header, but filtering data remains here.
+
 
   // Filter Component Data
   const filteredData = useMemo(() => {
@@ -120,30 +179,53 @@ export default function App() {
 
   // Comparison Data Logic
   const comparisonData = useMemo(() => {
-     if (!dateRange?.start || !dateRange?.end) return [];
-
-     // Calculate Previous Period
-     const duration = dateRange.end.getTime() - dateRange.start.getTime();
-     const prevEnd = new Date(dateRange.start.getTime() - 86400000); // 1 day before start
-     const prevStart = new Date(prevEnd.getTime() - duration);
-
-     return data.filter(d => {
+     // Now we just filter the *already fetched* previous data by Franchise/Account
+     return formattedComparisonData.filter(d => {
        const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
        const matchAccount = !selectedAccount || d.account_name === selectedAccount;
-       const itemDate = new Date(d.date_start + 'T12:00:00');
-       const matchDate = itemDate >= prevStart && itemDate <= prevEnd;
-       return matchFranchise && matchAccount && matchDate;
+       // Date filtering is already done by API!
+       return matchFranchise && matchAccount;
     });
-  }, [selectedFranchise, selectedAccount, dateRange, data]);
+  }, [selectedFranchise, selectedAccount, formattedComparisonData]);
 
   // --- 4. CONDITIONAL RENDERING ---
 
-  if (authLoading) {
-      return (
-        <div className="flex h-screen items-center justify-center bg-slate-50">
-           <Loader2 className="animate-spin text-indigo-600" size={48} />
-        </div>
-      );
+  // --- 4. DATA SECURITY & AUTOMATION ---
+  useEffect(() => {
+    // Auto-Select Franchise for 'Franqueado' Role
+    if (userProfile && userProfile.role === 'franqueado' && userProfile.assigned_franchise_ids?.length > 0) {
+        // We need to match the ID to the Name because the legacy system uses Name as ID in dropdowns
+        // Or if 'assigned_franchise_ids' contains the ID, and we have the list available.
+        // Assuming the ID in profile maps to the 'franqueado' column logic which seems to be ID-based in legacy views?
+        // Actually, looking at `fetchCampaignData`, it returns `franqueado` column.
+        // Let's assume the ID matches. IF NOT, we might need a mapping.
+        
+        // Simpler approach: If the user has access to ONLY ONE franchise (which is true for franqueado),
+        // and we have data loaded, just pick the first available franchise in the data.
+        
+        // BETTER: Use the ID from profile to find the name in `officialFranchises` list.
+        if (officialFranchises.length > 0) {
+            const myFranchiseId = userProfile.assigned_franchise_ids[0];
+            const found = officialFranchises.find(f => f.id === myFranchiseId);
+            
+            // CRITICAL FIX: The Dashboard filters by NAME (string), not ID.
+            // We must set the Name found from the ID.
+            if (found && selectedFranchise !== found.name) { 
+               setSelectedFranchise(found.name); 
+            }
+        }
+    }
+  }, [userProfile, officialFranchises, selectedFranchise]);
+
+  if (authLoading || (session && !userProfile)) {
+       return (
+         <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+           <div className="flex flex-col items-center gap-3">
+             <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+             <p className="text-sm font-medium text-slate-500 animate-pulse">Carregando acessos...</p>
+           </div>
+         </div>
+       );
   }
 
   if (!session) {
@@ -152,9 +234,12 @@ export default function App() {
 
   if (loading && data.length === 0) {
     return (
-      <div className="flex min-h-screen bg-background items-center justify-center flex-col gap-4">
-        <Loader2 className="animate-spin text-primary" size={48} />
-        <p className="text-muted-foreground font-medium">Carregando dashboard...</p>
+      <div className="flex min-h-screen bg-slate-50 items-center justify-center flex-col gap-4">
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-indigo-100 flex flex-col items-center">
+            <Loader2 className="animate-spin text-indigo-600 mb-4" size={32} />
+            <p className="text-slate-600 font-bold">Carregando dados...</p>
+            <p className="text-xs text-slate-400">Sincronizando estatísticas</p>
+        </div>
       </div>
     );
   }
@@ -168,6 +253,9 @@ export default function App() {
           activeView={activeView} 
           setActiveView={setActiveView} 
           isDemoMode={isDemoMode} 
+          userRole={userProfile?.role}
+          userName={userProfile?.name}
+          userEmail={userProfile?.email}
           className="border-none h-full"
         />
       </aside>
@@ -206,6 +294,7 @@ export default function App() {
                 setSelectedClient={setSelectedAccount}
                 dateRange={dateRange}
                 setDateRange={setDateRange}
+                isLocked={userProfile?.role === 'franqueado'}
               />
            )}
         </header>
@@ -230,7 +319,11 @@ export default function App() {
             )}
 
             {activeView === 'dashboard' && (
-                <ManagerialView data={filteredData} comparisonData={comparisonData} />
+                <ManagerialView 
+                    data={filteredData} 
+                    comparisonData={comparisonData} 
+                    kpiData={kpiRpcData} // Pass the RPC data
+                />
             )}
 
             {activeView === 'executive' && (
@@ -254,7 +347,16 @@ export default function App() {
             )}
 
             {activeView === 'settings' && (
-                <SettingsView />
+                (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? (
+                    <SettingsView />
+                ) : (
+                    <div className="flex h-64 items-center justify-center flex-col gap-2 text-slate-400">
+                        <Loader2 className="animate-spin" /> 
+                        <span>Verificando permissões...</span>
+                        {/* Fallback instant if loaded */}
+                        {userProfile && <span className="text-red-500 font-bold border border-red-200 bg-red-50 px-4 py-2 rounded-lg">Acesso Negado</span>}
+                    </div>
+                )
             )}
            
             <footer className="text-center text-muted-foreground text-xs py-8">

@@ -1,16 +1,20 @@
 import React from 'react';
-import { LayoutDashboard, PieChart, Users, Settings, Database, AlertCircle, Palette, LineChart, LayoutGrid, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, PieChart, Users, Settings, LogOut, Palette, LineChart, LayoutGrid, ClipboardList } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { supabase } from '@/services/supabaseClient';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary';
   setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary') => void;
   isDemoMode: boolean;
+  userRole?: string;
+  userName?: string;
+  userEmail?: string;
   className?: string;
 }
 
-export function Sidebar({ className, activeView, setActiveView, isDemoMode }: SidebarProps) {
+export function Sidebar({ className, activeView, setActiveView, isDemoMode, userRole, userName, userEmail }: SidebarProps) {
   const NavItem = ({ icon: Icon, label, view }: any) => (
     <Button
       variant={activeView === view ? "secondary" : "ghost"}
@@ -21,6 +25,14 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode }: Si
       {label}
     </Button>
   );
+
+  const canAccessSettings = userRole === 'admin' || userRole === 'executive';
+
+  const handleLogout = async () => {
+      await supabase.auth.signOut();
+      // Force reload to clear memory state
+      window.location.href = "/"; 
+  };
 
   return (
     <div className={cn("flex flex-col h-full bg-card border-r py-6 px-4", className)}>
@@ -36,17 +48,30 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode }: Si
         <NavItem icon={LayoutGrid} label="Anúncios (Tabela)" view="ads" />
         <NavItem icon={Palette} label="Criativos (Galeria)" view="creatives" />
         <NavItem icon={Users} label="Públicos" view="demographics" />
-        <NavItem icon={Settings} label="Configurações" view="settings" />
+        
+        {canAccessSettings && (
+            <NavItem icon={Settings} label="Configurações" view="settings" />
+        )}
       </nav>
 
       <div className="mt-auto pt-6 border-t">
-        <div className={cn("rounded-lg p-3 text-xs border", isDemoMode ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-emerald-50 border-emerald-200 text-emerald-700")}>
-          <div className="flex items-center gap-2 font-bold mb-1">
-            {isDemoMode ? <AlertCircle size={14} /> : <Database size={14} />}
-            {isDemoMode ? "Modo Demo" : "Supabase ON"}
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+            <div className="flex flex-col overflow-hidden">
+              <span className="truncate text-xs font-medium text-foreground" title={userName}>
+                {userName || 'Usuário Conectado'}
+              </span>
+              <span className="truncate text-[10px] text-muted-foreground" title={userEmail}>
+                {userEmail || 'Sair do sistema'}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors border border-transparent hover:border-destructive/20"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          {isDemoMode ? "Visualizando dados fictícios." : "Sincronização em tempo real."}
-        </div>
       </div>
     </div>
   );

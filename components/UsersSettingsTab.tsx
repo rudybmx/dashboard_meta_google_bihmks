@@ -12,7 +12,8 @@ import {
   X,
   Check,
   AlertCircle,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
 import * as userService from '../services/userService';
 import * as supabaseService from '../services/supabaseService';
@@ -28,6 +29,9 @@ export const UsersSettingsTab: React.FC = () => {
     // Filter/UI States
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwordResetData, setPasswordResetData] = useState({ userId: '', newPassword: '' });
+
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -147,6 +151,34 @@ export const UsersSettingsTab: React.FC = () => {
         });
     };
 
+    const handleOpenPasswordModal = (user: UserProfile) => {
+        setPasswordResetData({ userId: user.id, newPassword: '' });
+        setIsPasswordModalOpen(true);
+        setFeedback(null);
+    };
+
+    const handlePasswordReset = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        setFeedback(null);
+
+        try {
+            await userService.resetUserPassword(passwordResetData.userId, passwordResetData.newPassword);
+            setFeedback({ type: 'success', text: 'Senha alterada com sucesso!' });
+            
+            setTimeout(() => {
+                setIsPasswordModalOpen(false);
+                setFeedback(null);
+                setPasswordResetData({ userId: '', newPassword: '' });
+            }, 1500);
+
+        } catch (err: any) {
+             setFeedback({ type: 'error', text: err.message });
+        } finally {
+             setSubmitting(false);
+        }
+    };
+
     const filteredUsers = users.filter(u => 
         u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -261,6 +293,13 @@ export const UsersSettingsTab: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => handleOpenPasswordModal(user)}
+                                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="Trocar Senha"
+                                            >
+                                                <Lock size={16} />
+                                            </button>
                                             <button 
                                                 onClick={() => handleOpenModal(user)}
                                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -449,6 +488,67 @@ export const UsersSettingsTab: React.FC = () => {
                                 >
                                     {submitting && <Loader2 size={16} className="animate-spin" />}
                                     {isEditing ? 'Salvar Alterações' : 'Criar Usuário'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Reset Modal */}
+            {isPasswordModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <Lock className="text-amber-600" size={20} />
+                                Redefinir Senha
+                            </h3>
+                            <button onClick={() => setIsPasswordModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handlePasswordReset} className="p-6">
+                            <div className="mb-6">
+                                <p className="text-sm text-slate-500 mb-4">
+                                    Digite a nova senha para o usuário. Esta ação não pode ser desfeita.
+                                </p>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nova Senha</label>
+                                <input 
+                                    required 
+                                    type="password"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all text-sm"
+                                    value={passwordResetData.newPassword}
+                                    onChange={e => setPasswordResetData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                    placeholder="••••••••"
+                                    minLength={6}
+                                />
+                            </div>
+
+                            {feedback && (
+                                <div className={`mb-4 p-3 rounded-xl text-sm font-medium flex items-center gap-2 animate-in slide-in-from-top-2 ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                    {feedback.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                                    {feedback.text}
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button 
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => setIsPasswordModalOpen(false)}
+                                    className="px-4 py-2 text-slate-500 hover:text-slate-700 font-bold text-sm transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg shadow-amber-500/20 font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:shadow-none"
+                                >
+                                    {submitting && <Loader2 size={16} className="animate-spin" />}
+                                    Salvar Nova Senha
                                 </button>
                             </div>
                         </form>

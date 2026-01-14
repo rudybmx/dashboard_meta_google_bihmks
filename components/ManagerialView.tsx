@@ -5,22 +5,27 @@ import { DollarSign, MessageCircle, Users, Target, ArrowRight, TrendingUp, Trend
 import { Funnel3DWidget } from './Funnel3DWidget';
 import { WeeklyTrendsWidget } from './WeeklyTrendsWidget';
 
-import { GeoMapWidget } from './GeoMapWidget';
-import { AgeChartWidget } from './AgeChartWidget';
+
 import { ObjectivesPerformanceWidget } from './ObjectivesPerformanceWidget';
 import { TopCreativesWidget } from './TopCreativesWidget';
 
 
 
+interface KPIData {
+    current_spend: number; current_leads: number; current_sales: number; current_impressions: number; current_clicks: number; current_reach: number;
+    prev_spend: number; prev_leads: number; prev_sales: number; prev_impressions: number; prev_clicks: number; prev_reach: number;
+}
+
 interface Props {
   data: CampaignData[];
   comparisonData?: CampaignData[];
+  kpiData?: KPIData | null;
 }
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
-export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) => {
+export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpiData }) => {
   const [totalBalance, setTotalBalance] = useState<number>(0);
 
   // Fetch and Filter Balance Data
@@ -87,37 +92,76 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
 
   
   // Calculate KPIS (Current vs Previous)
+  // Logic: Use RPC kpiData if available (Backend Source of Truth), otherwise fallback to frontend calc (legacy/charts)
   const kpis = useMemo(() => {
+    console.log("DEBUG: ManagerialView kpiData prop:", kpiData);
+    console.log("DEBUG: ManagerialView comparisonData prop:", comparisonData?.length);
+
+    // Helper for deltas
+    const getDelta = (curr: number, past: number) => {
+        if (past === 0) return 0;
+        return ((curr - past) / past) * 100;
+    };
+
+    // 1. IF RPC DATA IS AVAILABLE -> USE IT (Fast & Accurate)
+    if (kpiData) {
+         // Calculate Derived Metrics
+         const cpl = kpiData.current_leads > 0 ? kpiData.current_spend / kpiData.current_leads : 0;
+         const prevCpl = kpiData.prev_leads > 0 ? kpiData.prev_spend / kpiData.prev_leads : 0;
+         
+         const current = {
+             totalSpend: kpiData.current_spend,
+             totalLeads: kpiData.current_leads,
+             totalPurchases: kpiData.current_sales,
+             totalImpressions: kpiData.current_impressions,
+             totalClicks: kpiData.current_clicks,
+             totalAlcance: kpiData.current_reach,
+             cpl
+         };
+         
+         const prev = {
+             totalSpend: kpiData.prev_spend,
+             totalLeads: kpiData.prev_leads,
+             totalPurchases: kpiData.prev_sales, 
+             cpl: prevCpl
+         };
+
+         return {
+            current,
+            prev,
+            deltas: {
+                spend: getDelta(current.totalSpend, prev.totalSpend),
+                purchases: getDelta(current.totalPurchases, prev.totalPurchases),
+                leads: getDelta(current.totalLeads, prev.totalLeads),
+                cpl: getDelta(current.cpl, prev.cpl)
+            }
+         };
+    }
+
+    // 2. FALLBACK: Frontend Calculation (Original Logic)
     const calc = (dataset: CampaignData[]) => {
       let totalSpend = 0;
       let totalImpressions = 0;
       let totalClicks = 0;
-      let totalLeads = 0; // Now represents msgs_iniciadas
-      let totalPurchases = 0; // New metric
+      let totalLeads = 0; 
+      let totalPurchases = 0; 
       let totalAlcance = 0;
 
       dataset.forEach(d => {
         totalSpend += d.valor_gasto;
         totalImpressions += d.impressoes;
         totalClicks += d.cliques_todos;
-        totalLeads += d.msgs_iniciadas || 0; // Leads is now based on msgs_iniciadas
+        totalLeads += d.msgs_iniciadas || 0; 
         totalPurchases += d.compras || 0;
         totalAlcance += d.alcance || 0;
       });
 
       const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-      const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-
       return { totalSpend, totalLeads, totalPurchases, cpl, totalImpressions, totalClicks, totalAlcance };
     };
 
     const current = calc(data);
     const prev = calc(comparisonData);
-
-    const getDelta = (curr: number, past: number) => {
-        if (past === 0) return 0;
-        return ((curr - past) / past) * 100;
-    };
 
     return {
       current,
@@ -129,7 +173,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
         cpl: getDelta(current.cpl, prev.cpl)
       }
     };
-  }, [data, comparisonData]);
+  }, [data, comparisonData, kpiData]);
 
   const cards = [
     {
@@ -221,17 +265,17 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
                             <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-1">{card.value}</h3>
                         </div>
 
-                        <div className="flex items-center justify-between text-xs mb-3 bg-slate-50 p-2 rounded-lg">
-                             <div className="flex flex-col">
-                                <span className="text-slate-400 font-medium mb-0.5">{card.prevLabel}</span>
+                        <div className="flex flex-col text-xs mb-3 bg-slate-50 p-2 rounded-lg">
+                             <span className="text-slate-400 font-medium mb-1">{card.prevLabel}</span>
+                             <div className="flex items-center gap-2">
                                 <span className="text-slate-600 font-bold">{card.prevValue}</span>
+                                {showTrend && (
+                                    <div className={`flex items-center gap-0.5 font-bold ${trendColor} text-[10px]`}>
+                                        <TrendIcon size={12} />
+                                        {Math.abs(card.delta).toFixed(1)}%
+                                    </div>
+                                )}
                              </div>
-                             {showTrend && (
-                                <div className={`flex items-center gap-1 font-bold ${trendColor} bg-white px-2 py-1 rounded-md shadow-sm`}>
-                                    <TrendIcon size={14} />
-                                    {Math.abs(card.delta).toFixed(1)}%
-                                </div>
-                             )}
                         </div>
                     </div>
 
@@ -292,10 +336,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
 
 
       {/* 4. Geography & Age Analysis (Section C) */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto">
-        <GeoMapWidget ads={data} />
-        <AgeChartWidget ads={data} />
-      </section>
+
 
 
 
