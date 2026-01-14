@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
 import { BMSettingsTab } from './BMSettingsTab';
 import { FranchiseSettingsTab } from './FranchiseSettingsTab';
-import { LayoutList, Store } from 'lucide-react';
+import { UsersSettingsTab } from './UsersSettingsTab';
+import { LayoutList, Store, Shield } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 export const SettingsView: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'accounts' | 'franchises'>('accounts');
+    const { canManageUsers } = useAuth();
+    const [activeTab, setActiveTab] = useState<'accounts' | 'franchises' | 'users'>('accounts');
+
+    // Security Guard using useEffect pattern for client-side protection
+    React.useEffect(() => {
+        if (activeTab === 'users' && !canManageUsers) {
+             setActiveTab('accounts'); // Redirect to safe tab
+             // console.warn("Acesso negado a aba de usuários");
+        }
+    }, [activeTab, canManageUsers]);
 
     return (
         <div className="flex flex-col h-full">
@@ -37,12 +48,29 @@ export const SettingsView: React.FC = () => {
                         <Store size={18} />
                         Gerenciar Franqueados
                     </button>
+
+                    {canManageUsers && (
+                        <button 
+                            onClick={() => setActiveTab('users')}
+                            className={`
+                                pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
+                                ${activeTab === 'users' 
+                                    ? 'border-indigo-600 text-indigo-600' 
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
+                            `}
+                        >
+                            <Shield size={18} />
+                            Usuários e Acesso
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Tab Content */}
             <div className="flex-1 bg-slate-50 overflow-auto p-8">
-                {activeTab === 'accounts' ? <BMSettingsTab /> : <FranchiseSettingsTab />}
+                {activeTab === 'accounts' && <BMSettingsTab />}
+                {activeTab === 'franchises' && <FranchiseSettingsTab />}
+                {activeTab === 'users' && canManageUsers && <UsersSettingsTab />}
             </div>
             
         </div>

@@ -6,13 +6,22 @@ import { ManagerialView } from './components/ManagerialView';
 import { SettingsView } from './components/SettingsView';
 import { CampaignsView } from './components/CampaignsView';
 import { CreativesView } from './components/CreativesView';
-import { fetchCampaignData, fetchFranchises } from './services/supabaseService';
+import { LoginView } from './components/LoginView'; 
+import { fetchCampaignData, fetchFranchises, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2 } from 'lucide-react';
+import { Session } from '@supabase/supabase-js';
 
 const REFERENCE_DATE = new Date();
 
 export default function App() {
+  // --- 1. ALL HOOKS MUST BE DECLARED AT THE TOP ---
+
+  // Auth States
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // App Data States
   const [data, setData] = useState<CampaignData[]>([]);
   const [officialFranchises, setOfficialFranchises] = useState<Franchise[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -20,15 +29,37 @@ export default function App() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives'>('dashboard');
 
-  // Estados de Filtro
+  // Filter States
   const [selectedFranchise, setSelectedFranchise] = useState<string>('all');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('last-30');
   const [customStartDate, setCustomStartDate] = useState<string>('2025-12-01');
   const [customEndDate, setCustomEndDate] = useState<string>('2025-12-31');
 
-  // Data Fetching
+  // --- 2. EFFECTS ---
+
+  // Auth Initialization
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // If logging out, we might want to clear data, but session null will trigger UI change anyway
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Data Fetching (Only if Authenticated)
+  // We keep the effect active but guard execution inside
+  useEffect(() => {
+    if (!session) return; 
+
     const loadData = async () => {
       setLoading(true);
       try {
@@ -53,8 +84,15 @@ export default function App() {
     };
 
     loadData();
-  }, []);
+  }, [session]); 
 
+  // Reset account selection when franchise changes
+  useEffect(() => {
+    setSelectedAccount('all');
+  }, [selectedFranchise]);
+
+  // --- 3. MEMOS (Derivations) ---
+  
   // Extract unique franchises
   const franchises = useMemo(() => {
     return officialFranchises
@@ -73,12 +111,7 @@ export default function App() {
     return Array.from(unique).sort();
   }, [selectedFranchise, data]);
 
-  // Reset account selection when franchise changes
-  useEffect(() => {
-    setSelectedAccount('all');
-  }, [selectedFranchise]);
-
-  // Filter data based on selection (Franchise, Account, Date)
+  // Filter Component Data
   const filteredData = useMemo(() => {
     return data.filter(d => {
       const matchFranchise = selectedFranchise === 'all' || d.franqueado === selectedFranchise;
@@ -190,24 +223,23 @@ export default function App() {
     });
   }, [selectedFranchise, selectedAccount, selectedDateRange, customStartDate, customEndDate, data]);
 
-  const getDateLabel = () => {
-    switch(selectedDateRange) {
-      case 'custom':
-        const start = customStartDate ? new Date(customStartDate + 'T12:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '...';
-        const end = customEndDate ? new Date(customEndDate + 'T12:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year:'2-digit'}) : '...';
-        return `${start} - ${end}`;
-      case 'last-7': return 'Últimos 7 Dias';
-      case 'last-30': return 'Últimos 30 Dias';
-      case 'this-week': return 'Esta Semana';
-      case 'last-week': return 'Semana Passada';
-      case 'this-month': return 'Este Mês';
-      case 'last-month': return 'Mês Passado';
-      case 'all': return 'Todo o Período';
-      default: return '';
-    }
-  };
 
-  if (loading) {
+  // --- 4. CONDITIONAL RENDERING (AT THE END) ---
+
+  if (authLoading) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-50">
+           <Loader2 className="animate-spin text-indigo-600" size={48} />
+        </div>
+      );
+  }
+
+  if (!session) {
+      return <LoginView />;
+  }
+
+  // Loading state for DASHBOARD DATA (only show if authenticated and fetching initial data)
+  if (loading && data.length === 0) {
     return (
       <div className="flex min-h-screen bg-background items-center justify-center flex-col gap-4">
         <Loader2 className="animate-spin text-primary" size={48} />
@@ -219,7 +251,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       
-      {/* 1. SIDEBAR DESKTOP (O FIX ESTÁ AQUI) */}
+      {/* 1. SIDEBAR DESKTOP */}
       <div className="hidden lg:flex w-72 flex-col fixed inset-y-0 z-50 border-r bg-card">
         <Sidebar 
           activeView={activeView} 
@@ -271,7 +303,7 @@ export default function App() {
         <div className="flex-1 p-6 overflow-auto bg-muted/20">
           <div className="max-w-7xl mx-auto w-full space-y-6">
             
-            {/* Mobile Header Filter Placeholder if needed, or keeping filters inside header only for simplicity */}
+            {/* Mobile Header Filter */}
             {activeView === 'dashboard' && (
                 <div className="lg:hidden mb-4">
                      <DashboardHeader 
@@ -297,7 +329,7 @@ export default function App() {
                 </div>
             )}
 
-            {/* VIEW RENDEIRNG: Explicit blocks to avoid ternary nesting issues */}
+            {/* VIEW RENDEIRNG */}
             
             {activeView === 'dashboard' && (
                 <ManagerialView data={filteredData} comparisonData={comparisonData} />

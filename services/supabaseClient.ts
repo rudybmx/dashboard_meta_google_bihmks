@@ -1,12 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
+import { Database } from '../types/database.types';
 
-// Em um ambiente de produção Vite, use import.meta.env.VITE_SUPABASE_URL
-// Para este exemplo, usamos as chaves fornecidas como fallback.
+// Tipagem segura para variáveis de ambiente
+const getEnvVar = (key: string): string => {
+  const val = import.meta.env[key];
+  if (!val) {
+    // Em desenvolvimento, podemos permitir fallbacks, mas em prod deve alertar
+    // Mantendo fallbacks originais para não quebrar o setup atual do usuário
+    if (key === 'VITE_SUPABASE_URL') return 'https://eylnuxgwxlhyasigvzdj.supabase.co';
+    if (key === 'VITE_SUPABASE_ANON_KEY') return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5bG51eGd3eGxoeWFzaWd2emRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NTU3MDgsImV4cCI6MjA4MjAzMTcwOH0.IQCLTyliIHYgxB3p0xHU72RRvgDcUyT_g9fxKRJD1po';
+    console.warn(`Environment variable ${key} is missing!`);
+    return '';
+  }
+  return val;
+};
 
-// Cast import.meta to any to avoid TS errors if types aren't configured
-const env = (import.meta as any).env;
+const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
-const SUPABASE_URL = env?.VITE_SUPABASE_URL || 'https://eylnuxgwxlhyasigvzdj.supabase.co';
-const SUPABASE_ANON_KEY = env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5bG51eGd3eGxoeWFzaWd2emRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0NTU3MDgsImV4cCI6MjA4MjAzMTcwOH0.IQCLTyliIHYgxB3p0xHU72RRvgDcUyT_g9fxKRJD1po';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
