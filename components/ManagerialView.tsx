@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { CampaignData } from '../types';
-import { DollarSign, MessageCircle, Users, Target, ArrowRight, TrendingUp, TrendingDown, Eye, Route, MousePointer2 } from 'lucide-react';
+import { fetchMetaAccounts } from '../services/supabaseService';
+import { DollarSign, MessageCircle, Users, Target, ArrowRight, TrendingUp, TrendingDown, Eye, Route, MousePointer2, Wallet } from 'lucide-react';
 import { Funnel3DWidget } from './Funnel3DWidget';
 import { WeeklyTrendsWidget } from './WeeklyTrendsWidget';
 
@@ -20,6 +21,38 @@ const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
 export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) => {
+  const [totalBalance, setTotalBalance] = useState<number>(0);
+
+  // Fetch and Filter Balance Data
+  useEffect(() => {
+     const loadBalance = async () => {
+        try {
+            const allAccounts = await fetchMetaAccounts();
+            
+            // Extract Unique Accounts visible in the current filtered 'data'
+            const visibleAccounts = new Set(data.map(d => d.account_name));
+            
+            // Filter Meta Accounts: Sum balance only if account matches name (or ID if we had it mapped)
+            // Fallback: If data is empty (no campaigns), we might still want to show balance if Filter is active?
+            // The prompt asks to "Only sum the current_balance of accounts that exist in the current filtered data"
+            
+            const filteredBalance = allAccounts
+                .filter(acc => visibleAccounts.has(acc.account_name) || visibleAccounts.has(acc.display_name || ''))
+                .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+            
+            setTotalBalance(filteredBalance);
+
+        } catch (err) {
+            console.error("Failed to load balance", err);
+        }
+     };
+
+     if (data.length > 0) {
+        loadBalance();
+     } else {
+        setTotalBalance(0);
+     }
+  }, [data]);
   
   // Aggregate Weekly Data
   const weeklyData = useMemo(() => {
@@ -100,6 +133,17 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
 
   const cards = [
     {
+        title: 'Saldo Disponível',
+        icon: <Wallet size={20} className="text-white" />,
+        color: 'bg-emerald-600',
+        value: formatCurrency(totalBalance),
+        prevLabel: '---',
+        prevValue: '---',
+        delta: 0,
+        inverseTrend: false,
+        goalProgress: 100
+    },
+    {
       title: 'Investimento',
       icon: <DollarSign size={20} className="text-white" />,
       color: 'bg-indigo-600',
@@ -161,6 +205,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
              const isGood = card.inverseTrend ? !isPositive : isPositive;
              const trendColor = isGood ? 'text-emerald-600' : 'text-red-500';
              const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+             const showTrend = card.delta !== 0 && card.prevValue !== '---';
 
              return (
                 <div key={idx} className="bg-white rounded-3xl p-5 shadow-lg shadow-indigo-500/5 border border-slate-100 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
@@ -181,10 +226,12 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
                                 <span className="text-slate-400 font-medium mb-0.5">{card.prevLabel}</span>
                                 <span className="text-slate-600 font-bold">{card.prevValue}</span>
                              </div>
-                             <div className={`flex items-center gap-1 font-bold ${trendColor} bg-white px-2 py-1 rounded-md shadow-sm`}>
-                                <TrendIcon size={14} />
-                                {Math.abs(card.delta).toFixed(1)}%
-                             </div>
+                             {showTrend && (
+                                <div className={`flex items-center gap-1 font-bold ${trendColor} bg-white px-2 py-1 rounded-md shadow-sm`}>
+                                    <TrendIcon size={14} />
+                                    {Math.abs(card.delta).toFixed(1)}%
+                                </div>
+                             )}
                         </div>
                     </div>
 
@@ -203,28 +250,6 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [] }) =
                 </div>
              );
         })}
-        
-        {/* Saldo em Conta Placeholder */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-5 shadow-xl shadow-slate-900/20 text-white flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
-            
-            <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                        <DollarSign size={20} className="text-emerald-400" />
-                    </div>
-                    <span className="text-slate-300 font-bold text-sm uppercase tracking-wide">Saldo em Conta</span>
-                </div>
-                <h3 className="text-2xl font-black text-white tracking-tight mb-1">R$ ---</h3>
-                <p className="text-xs text-slate-400">Integração em breve</p>
-            </div>
-            
-            <div className="relative z-10 mt-4 pt-4 border-t border-white/10">
-                <button className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
-                    Configurar <ArrowRight size={14} />
-                </button>
-            </div>
-        </div>
       </div>
 
       {/* Secondary Metrics Row */}

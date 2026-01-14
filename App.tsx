@@ -10,6 +10,7 @@ import { LoginView } from './components/LoginView';
 import { DashboardOverview } from './components/DashboardOverview';
 import { DemographicsGeoView } from './components/DemographicsGeoView';
 import { AdsTableView } from './components/AdsTableView';
+import { SummaryView } from './components/SummaryView';
 import { fetchCampaignData, fetchFranchises, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2 } from 'lucide-react';
@@ -32,7 +33,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary'>('dashboard');
 
   // New Filter States (RangeValue support)
   const [selectedFranchise, setSelectedFranchise] = useState<string>('');
@@ -177,32 +178,35 @@ export default function App() {
         {/* HEADER - STICKY/FIXED TOP with HIGH Z-INDEX */}
         <header className="relative z-50 flex-none">
            {/* Mobile Nav Integration inside Header Row if needed, or separate */}
+           {/* Mobile Nav Integration inside Header Row if needed, or separate */}
            <div className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
                 <MobileNav activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} />
                 <span className="font-bold">OP7 Dashboard</span>
            </div>
 
-           {activeView === 'dashboard' ? (
-               <DashboardHeader 
-                  data={data}
-                  selectedFranchisee={selectedFranchise}
-                  setSelectedFranchisee={setSelectedFranchise}
-                  selectedClient={selectedAccount}
-                  setSelectedClient={setSelectedAccount}
-                  dateRange={dateRange}
-                  setDateRange={setDateRange}
-                />
-           ) : (
-             <div className="h-16 flex items-center px-6 bg-white border-b border-slate-200 shadow-sm relative z-40">
-                <h2 className="text-lg font-semibold">
-                  {activeView === 'campaigns' ? 'Campanhas' : 
-                   activeView === 'creatives' ? 'Criativos' : 
-                   activeView === 'executive' ? 'Visão Executiva' :
-                   activeView === 'demographics' ? 'Públicos' :
-                   activeView === 'ads' ? 'Detalhamento de Anúncios' :
-                   activeView === 'settings' ? 'Configurações' : ''}
-                </h2>
+           {activeView === 'settings' ? (
+             <div className="h-20 flex items-center px-6 bg-white border-b border-slate-200 shadow-sm relative z-40">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Configurações</h2>
              </div>
+           ) : (
+             <DashboardHeader 
+                title={
+                    activeView === 'dashboard' ? 'Visão Gerencial' :
+                    activeView === 'summary' ? 'Resumo Gerencial' :
+                    activeView === 'executive' ? 'Visão Executiva' :
+                    activeView === 'campaigns' ? 'Performance de Campanhas' :
+                    activeView === 'creatives' ? 'Galeria de Criativos' :
+                    activeView === 'ads' ? 'Detalhamento de Anúncios' :
+                    activeView === 'demographics' ? 'Inteligência de Público' : 'Dashboard'
+                }
+                data={data}
+                selectedFranchisee={selectedFranchise}
+                setSelectedFranchisee={setSelectedFranchise}
+                selectedClient={selectedAccount}
+                setSelectedClient={setSelectedAccount}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+              />
            )}
         </header>
 
@@ -217,6 +221,14 @@ export default function App() {
             )}
 
             {/* Views */}
+            {activeView === 'summary' && (
+                <SummaryView 
+                    data={filteredData} 
+                    selectedFranchisee={selectedFranchise}
+                    selectedClient={selectedAccount}
+                />
+            )}
+
             {activeView === 'dashboard' && (
                 <ManagerialView data={filteredData} comparisonData={comparisonData} />
             )}

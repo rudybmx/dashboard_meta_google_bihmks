@@ -6,6 +6,7 @@ import { CampaignData } from '../types';
 import { subDays, startOfMonth } from 'date-fns';
 
 interface DashboardHeaderProps {
+  title: string;
   data: CampaignData[];
   selectedFranchisee: string;
   setSelectedFranchisee: (val: string) => void;
@@ -16,6 +17,7 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+  title,
   data,
   selectedFranchisee,
   setSelectedFranchisee,
@@ -46,7 +48,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       
       {/* Left: Page Title */}
       <div>
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Visão Gerencial</h1>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h1>
         <p className="text-sm text-slate-500 flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
           Dados atualizados
