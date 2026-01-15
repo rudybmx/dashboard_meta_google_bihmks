@@ -412,13 +412,16 @@ export const fetchFranchises = async () => {
 };
 
 export const createFranchise = async (name: string) => {
-    const { data, error } = await supabase
-        .from('tb_franqueados')
-        .insert([{ nome: name, ativo: true }])
-        .select()
-        .single();
+    // Uses Secure RPC to ensure Admin rights and bypass RLS complexities
+    const { data, error } = await supabase.rpc('create_franchise_unit', {
+        p_name: name
+    });
     
-    if (error) throw error;
+    if (error) {
+        console.error("Error creating franchise:", error);
+        throw error;
+    }
+
     return {
         id: data.id,
         name: data.nome || '',
@@ -426,11 +429,14 @@ export const createFranchise = async (name: string) => {
     };
 };
 
-export const toggleFranchiseStatus = async (id: string, active: boolean) => {
-    const { error } = await supabase
-        .from('tb_franqueados')
-        .update({ ativo: active })
-        .eq('id', id);
+export const deleteFranchise = async (id: string) => {
+    console.log("DEBUG: Using RPC for Franchise Hard Delete");
+    const { error } = await supabase.rpc('delete_franchise_unit', {
+        p_id: id
+    });
         
-    if (error) throw error;
+    if (error) {
+        console.error("Error deleting franchise:", error);
+        throw error;
+    }
 };

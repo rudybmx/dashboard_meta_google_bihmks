@@ -55,7 +55,7 @@ export const FranchiseSettingsTab: React.FC = () => {
         setFranchises(prev => prev.filter(f => f.id !== id));
 
         try {
-            await supabaseService.toggleFranchiseStatus(id, false);
+            await supabaseService.deleteFranchise(id);
         } catch (err) {
             console.error(err);
             alert('Erro ao excluir');

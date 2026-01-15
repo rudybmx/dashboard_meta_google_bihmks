@@ -92,14 +92,20 @@ export default function App() {
                 
                 console.log("DEBUG: Profile Result:", profile);
 
-                if (mounted) {
-                    setUserProfile(profile as any);
+                if (profile) {
+                    if (mounted) {
+                        setUserProfile(profile as any);
+                    }
+                } else {
+                    console.warn("DEBUG: Profile not found for session, forcing logout.");
+                    await supabase.auth.signOut();
+                    if (mounted) setSession(null);
                 }
             }
         } catch (error) {
             console.error("Auth init failed:", error);
-            // Force logout on critical failures to allow re-login
             await supabase.auth.signOut();
+            if (mounted) setSession(null);
         } finally {
             console.log("DEBUG: Setting authLoading = false");
             if (mounted) setAuthLoading(false);
@@ -114,7 +120,16 @@ export default function App() {
       
       if (session?.user?.email) {
           const profile = await fetchUserProfile(session.user.email);
-          if (mounted) setUserProfile(profile);
+          if (mounted) {
+            if (profile) {
+                setUserProfile(profile);
+            } else {
+                // Critical Fix: If session exists but profile doesn't, kill the session.
+                console.warn("DEBUG: Profile missing in AuthChange, signing out.");
+                await supabase.auth.signOut();
+                setSession(null);
+            }
+          }
       } else {
          if (mounted) setUserProfile(null);
       }

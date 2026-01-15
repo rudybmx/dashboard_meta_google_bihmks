@@ -1,12 +1,12 @@
 import { supabase } from './supabaseClient';
 import { UserProfile, UserFormData } from '../types';
 
-const TABLE_USERS = 'user_profiles';
+const TABLE_USERS = 'perfil_acesso';
 
 export const fetchUsers = async (): Promise<UserProfile[]> => {
     const { data, error } = await supabase
         .from(TABLE_USERS)
-        .select('*')
+        .select('id, email, name:nome, role, assigned_franchise_ids, assigned_account_ids, created_at')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -17,57 +17,40 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
 };
 
 export const createUser = async (userData: UserFormData): Promise<UserProfile | null> => {
-    // 1. Tenta criar o Usuário no Auth (Se tiver permissão de Admin/Service Role)
-    // Nota: Num ambiente client-side puro com Anon Key, isso falhará ou exigirá que o admin faça logout.
-    // A solução ideal é uma Edge Function. Aqui faremos uma tentativa "Best Effort".
-    
-    let authId = null;
+    console.log("DEBUG: Using RPC for User Creation"); // Force HMR & Debug
+    // Call the Secure RPC that handles Auth + Profile creation atomically
+    const { data: rpcData, error: rpcError } = await supabase.rpc('create_platform_user', {
+        p_email: userData.email,
+        p_password: userData.password || 'Mudar123!', 
+        p_name: userData.name,
+        p_role: userData.role,
+        p_franchise_ids: userData.assigned_franchise_ids || [],
+        p_account_ids: userData.assigned_account_ids || []
+    });
 
-    if (userData.password) {
-        // Tentativa de criar via Admin API (funciona se a chave for service_role, o que é inseguro no front, mas comum em dev local)
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: userData.email,
-            password: userData.password,
-            email_confirm: true,
-            user_metadata: { name: userData.name }
-        });
-
-        if (!authError && authData.user) {
-            authId = authData.user.id;
-        } else {
-             console.warn("FALHA AO CRIAR AUTH USER (Provavelmente falta de permissão Admin):", authError);
-             alert("Atenção: O usuário foi criado apenas no banco de dados (Perfil). Para que ele faça login, você deve criar manualmente no Authentication do Supabase com o mesmo email.");
-        }
+    if (rpcError) {
+        console.error("RPC Create User Failed:", rpcError);
+        throw new Error(rpcError.message);
     }
 
-    // 2. Cria o Perfil Público
-    const profilePayload = {
-        id: authId, // Se conseguiu criar no Auth, usa o mesmo ID. Se não, o banco gera um novo (mas login não funcionará auto)
-        name: userData.name,
+    return {
+        id: rpcData.id,
         email: userData.email,
+        name: userData.name,
         role: userData.role,
         assigned_franchise_ids: userData.assigned_franchise_ids,
-        assigned_account_ids: userData.assigned_account_ids
-    };
-
-    // Remove ID undefined se falhou
-    if (!profilePayload.id) delete profilePayload.id;
-
-    const { data, error } = await supabase
-        .from(TABLE_USERS)
-        .insert([profilePayload])
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error creating user profile:', error);
-        throw error;
-    }
-    return data as unknown as UserProfile;
+        assigned_account_ids: userData.assigned_account_ids,
+        created_at: new Date().toISOString()
+    } as UserProfile;
 };
 
 export const updateUser = async (id: string, updates: Partial<UserFormData>): Promise<UserProfile | null> => {
+    // Map Frontend 'name' to DB 'nome'
     const payload: any = { ...updates };
+    if (payload.name) {
+        payload.nome = payload.name;
+        delete payload.name;
+    }
     delete payload.password; 
     delete payload.id;
 
@@ -75,7 +58,7 @@ export const updateUser = async (id: string, updates: Partial<UserFormData>): Pr
         .from(TABLE_USERS)
         .update(payload)
         .eq('id', id)
-        .select()
+        .select('id, email, name:nome, role, assigned_franchise_ids, assigned_account_ids, created_at')
         .single();
 
     if (error) {
@@ -86,26 +69,27 @@ export const updateUser = async (id: string, updates: Partial<UserFormData>): Pr
 };
 
 export const deleteUser = async (id: string) => {
-    // Tenta deletar do Auth também (Best Effort)
-    await supabase.auth.admin.deleteUser(id).catch(err => console.warn("Não foi possível deletar do Auth:", err));
-
-    const { error } = await supabase
-        .from(TABLE_USERS)
-        .delete()
-        .eq('id', id);
-
-    if (error) throw error;
-};
-
-export const resetUserPassword = async (userId: string, newPassword: string) => {
-    // Requer Service Role ou Edge Function
-    const { data, error } = await supabase.auth.admin.updateUserById(userId, {
-        password: newPassword
+    console.log("DEBUG: Using RPC for User Deletion"); // Force HMR
+    // Securely delete from Auth and Public tables via RPC
+    const { error } = await supabase.rpc('delete_platform_user', {
+        p_user_id: id
     });
 
     if (error) {
-        console.error("Falha ao redefinir senha:", error);
-        throw new Error("Não foi possível alterar a senha. Verifique se você tem permissões de Administrador (Service Role).");
+        console.error("Error deleting user (RPC):", error);
+        throw error;
+    }
+};
+
+export const resetUserPassword = async (userId: string, newPassword: string) => {
+    const { data, error } = await supabase.rpc('reset_platform_user_password', {
+        p_user_id: userId,
+        p_new_password: newPassword
+    });
+
+    if (error) {
+        console.error("Falha ao redefinir senha (RPC):", error);
+        throw new Error(error.message || "Falha ao redefinir senha.");
     }
     return data;
 };

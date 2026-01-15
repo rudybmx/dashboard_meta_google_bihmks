@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ type SortKey = 'spend' | 'leads' | 'cpl' | 'ctr' | 'cpc' | 'reach' | 'impression
 interface TreeNode {
   id: string;
   name: string;
+  objective?: string; // New Field
   level: 'campaign' | 'adset' | 'ad';
   image?: string; // Only for ads
   
@@ -101,7 +103,9 @@ const buildHierarchy = (data: CampaignData[]): TreeNode[] => {
 
     // 2. Get or Create Campaign
     if (!campaignMap.has(campId)) {
-        campaignMap.set(campId, createNode(campId, campName, 'campaign'));
+        const newNode = createNode(campId, campName, 'campaign');
+        if (row.objective) newNode.objective = row.objective.toUpperCase(); // Capture Objective
+        campaignMap.set(campId, newNode);
     }
     const campNode = campaignMap.get(campId)!;
 
@@ -162,6 +166,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
       key: 'spend', 
       direction: 'desc' 
   });
+  const [objectiveFilter, setObjectiveFilter] = useState<string>('ALL'); // New Filter State
 
   // Toggle Row Expansion
   const toggleRow = (id: string) => {
@@ -175,28 +180,39 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
   };
 
   // --- Process Data ---
+  const rootNodes = useMemo(() => buildHierarchy(data), [data]);
+
+  const uniqueObjectives = useMemo(() => {
+      return Array.from(new Set(rootNodes.map(n => n.objective).filter(Boolean))).sort();
+  }, [rootNodes]);
+
   const hierarchy = useMemo(() => {
-    const rootNodes = buildHierarchy(data);
-    
-    // 1. Filter (Top Level Only for simplicity, or recursive search could be added)
     let filtered = rootNodes;
+    
+    // 1. Filter by Objective
+    if (objectiveFilter !== 'ALL') {
+        filtered = filtered.filter(n => n.objective === objectiveFilter);
+    }
+
+    // 2. Filter by Search
     if (searchTerm) {
         const lowerTerm = searchTerm.toLowerCase();
-        filtered = rootNodes.filter(n => 
+        filtered = filtered.filter(n => 
             n.name.toLowerCase().includes(lowerTerm) || 
             n.children.some(c => c.name.toLowerCase().includes(lowerTerm))
         );
     }
 
-    // 2. Sort (Top Level)
-    filtered.sort((a, b) => {
+    // 3. Sort (Top Level)
+    filtered.sort((a, b) => { // NOTE: sort mutates, but we are sorting a filtered array (shallow copy from filter usually, or we should spread)
+        // filter returns new array, so sort is fine.
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
         return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
     });
 
     return filtered;
-  }, [data, searchTerm, sortConfig]);
+  }, [rootNodes, searchTerm, sortConfig, objectiveFilter]);
 
   // Handle Sort Request
   const handleSort = (key: SortKey) => {
@@ -420,14 +436,31 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
             <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
                 <LayoutGrid size={20} className="text-slate-400"/> Detalhamento Tático
             </h3>
-            <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                    placeholder="Filtrar campanhas, conjuntos, anúncios..." 
-                    className="pl-9 bg-white border-slate-200 focus:border-indigo-500 shadow-sm" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="relative flex items-center gap-3 w-full sm:w-auto">
+                 {/* Objective Filter */}
+                 <div className="w-48">
+                    <Select value={objectiveFilter} onValueChange={setObjectiveFilter}>
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Objetivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">Todos Objetivos</SelectItem>
+                            {uniqueObjectives.map(obj => (
+                                <SelectItem key={obj} value={obj!}>{obj}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+
+                <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input 
+                        placeholder="Filtrar..." 
+                        className="pl-9 bg-white border-slate-200 focus:border-indigo-500 shadow-sm h-9" 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </div>
         </div>
 

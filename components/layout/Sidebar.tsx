@@ -28,10 +28,22 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode, user
 
   const canAccessSettings = userRole === 'admin' || userRole === 'executive';
 
-  const handleLogout = async () => {
-      await supabase.auth.signOut();
-      // Force reload to clear memory state
-      window.location.href = "/"; 
+  const handleLogout = async (e?: React.MouseEvent) => {
+      e?.preventDefault();
+      try {
+          console.log("Logging out...");
+          const { error } = await supabase.auth.signOut();
+          if (error) console.error("Logout error:", error);
+          
+          localStorage.removeItem('sb-eylnuxgwxlhyasigvzdj-auth-token'); // Clear specific token if known
+          localStorage.clear(); // Nuclear option for "Stuck" states
+          
+          // Force reload to ensure clean state
+          window.location.href = "/";
+      } catch (err) {
+          console.error("Logout Exception:", err);
+          window.location.href = "/"; 
+      }
   };
 
   return (

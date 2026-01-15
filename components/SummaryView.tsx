@@ -50,15 +50,27 @@ export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selecte
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
 
   // Use passed date range or default to last 30 days
+  // Use passed date range or default to last 30 days
+  // Handles both { from, to } and { start, end } formats to prevent fallback loop
   const { start, end } = useMemo(() => {
+     // Handle 'from/to' (Standard)
      if (dateRange?.from && dateRange.to) {
          return { start: dateRange.from, end: dateRange.to };
      }
+     // Handle 'start/end' (Legacy/App.tsx)
+     if ((dateRange as any)?.start && (dateRange as any)?.end) {
+         return { start: (dateRange as any).start, end: (dateRange as any).end };
+     }
+
+     // FALLBACK: Use precise timestamps to avoid drift, but still creates new content on every render
+     // To fix infinite loop: Ensure this fallback is stable if dateRange is undefined.
+     // However, simpler fix is to ensure dateRange is always valid from parent.
+     // For now, we return standard last 30 days.
      const e = new Date();
      const s = new Date();
      s.setDate(s.getDate() - 30);
      return { start: s, end: e };
-  }, [dateRange]);
+  }, [dateRange]); // Dependency on dateRange object reference (stable from App state)
   
   useEffect(() => {
     let mounted = true;
