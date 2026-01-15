@@ -19,30 +19,57 @@ import { getPreviousPeriod, formatDateForDB } from '../lib/dateUtils';
 // ... (existing fetchCampaignData logic tailored for Charts/Table remains)
 
 // --- HELPER: Centralized User Access Profile Fetch ---
+let profileCache: Map<string, { data: any, timestamp: number }> = new Map();
+let profileFetchPromises: Map<string, Promise<any>> = new Map();
+
 export const fetchUserProfile = async (email: string | undefined) => {
     if (!email) return null;
-    try {
-        const { data, error } = await supabase
-            .from('perfil_acesso')
-            .select('*')
-            .eq('email', email)
-            .maybeSingle();
 
-        if (error) {
-            console.warn("Error fetching perfil_acesso:", error);
-            return null;
-        }
-        if (!data) return null;
-
-        // Map DB 'nome' to App 'name'
-        return {
-            ...data,
-            name: data.nome || email.split('@')[0],
-        };
-    } catch (err) {
-        console.error("Exception fetching profile:", err);
-        return null;
+    // 1. Cache Check (60 seconds)
+    const cached = profileCache.get(email);
+    if (cached && (Date.now() - cached.timestamp < 60000)) {
+        console.log("DEBUG: Using cached profile for", email);
+        return cached.data;
     }
+
+    // 2. Deduplication Check (Ongoing promise)
+    if (profileFetchPromises.has(email)) {
+        console.log("DEBUG: Reusing existing profile fetch for", email);
+        return profileFetchPromises.get(email);
+    }
+
+    const promise = (async () => {
+        try {
+            const { data, error } = await supabase
+                .from('perfil_acesso')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (error) {
+                console.warn("Error fetching perfil_acesso:", error);
+                return null;
+            }
+
+            const result = data ? {
+                ...data,
+                name: data.nome || email.split('@')[0],
+            } : null;
+
+            // Update Cache
+            profileCache.set(email, { data: result, timestamp: Date.now() });
+            return result;
+        } catch (err) {
+            console.error("Exception fetching profile:", err);
+            return null;
+        } finally {
+            // Cleanup promise map when done
+            profileFetchPromises.delete(email);
+        }
+    })();
+
+    profileFetchPromises.set(email, promise);
+    return promise;
 };
 
 export const fetchCampaignData = async (

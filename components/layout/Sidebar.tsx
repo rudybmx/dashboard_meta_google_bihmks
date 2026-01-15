@@ -2,7 +2,7 @@ import React from 'react';
 import { LayoutDashboard, PieChart, Users, Settings, LogOut, Palette, LineChart, LayoutGrid, ClipboardList } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { supabase } from '@/services/supabaseClient';
+import { useAuth } from '@/src/auth/useAuth';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary';
@@ -15,6 +15,8 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function Sidebar({ className, activeView, setActiveView, isDemoMode, userRole, userName, userEmail }: SidebarProps) {
+  const { logout } = useAuth();
+  
   const NavItem = ({ icon: Icon, label, view }: any) => (
     <Button
       variant={activeView === view ? "secondary" : "ghost"}
@@ -30,20 +32,8 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode, user
 
   const handleLogout = async (e?: React.MouseEvent) => {
       e?.preventDefault();
-      try {
-          console.log("Logging out...");
-          const { error } = await supabase.auth.signOut();
-          if (error) console.error("Logout error:", error);
-          
-          localStorage.removeItem('sb-eylnuxgwxlhyasigvzdj-auth-token'); // Clear specific token if known
-          localStorage.clear(); // Nuclear option for "Stuck" states
-          
-          // Force reload to ensure clean state
-          window.location.href = "/";
-      } catch (err) {
-          console.error("Logout Exception:", err);
-          window.location.href = "/"; 
-      }
+      await logout();
+      window.location.href = "/";
   };
 
   return (

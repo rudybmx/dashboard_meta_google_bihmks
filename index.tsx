@@ -2,19 +2,17 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { AuthProvider } from './src/auth/AuthProvider';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+    throw new Error('Elemento root não encontrado');
 }
 
-import { AuthProvider } from './contexts/AuthContext';
-
 const root = ReactDOM.createRoot(rootElement);
+
 root.render(
-  <React.StrictMode>
-    <AuthProvider>
-        <App />
-    </AuthProvider>
-  </React.StrictMode>
+  <AuthProvider>
+      <App />
+  </AuthProvider>
 );
