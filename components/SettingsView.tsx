@@ -3,10 +3,12 @@ import { BMSettingsTab } from './BMSettingsTab';
 import { FranchiseSettingsTab } from './FranchiseSettingsTab';
 import { UsersSettingsTab } from './UsersSettingsTab';
 import { LayoutList, Store, Shield } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-
-export const SettingsView: React.FC = () => {
-    const { canManageUsers } = useAuth();
+export const SettingsView: React.FC<{ userRole?: string }> = ({ userRole }) => {
+    // Legacy hook removed to fix duplicate auth state bug
+    // const { canManageUsers } = useAuth();
+    
+    // Derive permission directly from passed prop (Single Source of Truth)
+    const canManageUsers = userRole === 'admin';
     const [activeTab, setActiveTab] = useState<'accounts' | 'franchises' | 'users'>('accounts');
 
     // Security Guard using useEffect pattern for client-side protection

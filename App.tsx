@@ -11,22 +11,20 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { DemographicsGeoView } from './components/DemographicsGeoView';
 import { AdsTableView } from './components/AdsTableView';
 import { SummaryView } from './components/SummaryView';
-import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchUserProfile, supabase } from './services/supabaseService';
+import { fetchCampaignData, fetchFranchises, fetchKPIComparison, supabase } from './services/supabaseService';
 import { CampaignData, Franchise } from './types';
 import { Loader2, Shield } from 'lucide-react';
-import { Session } from '@supabase/supabase-js';
 import { RangeValue } from './components/ui/calendar';
 import { subDays, startOfMonth } from 'date-fns';
+import { useAuth } from './contexts/AuthContext';
 
 const REFERENCE_DATE = new Date(); // Or today
 
 export default function App() {
   // --- 1. ALL HOOKS MUST BE DECLARED AT THE TOP ---
 
-  // Auth States
-  const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null); // Store full profile
-  const [authLoading, setAuthLoading] = useState(true);
+  // Auth States via Context (Centralized Source of Truth)
+  const { session, userProfile, loading: authLoading } = useAuth();
 
   // App Data States
   const [data, setData] = useState<CampaignData[]>([]);
@@ -47,99 +45,6 @@ export default function App() {
   });
 
   // --- 2. EFFECTS ---
-
-  // Auth Initialization
-  // Auth Initialization & Profile Fetch
-  useEffect(() => {
-    let mounted = true;
-
-    const initAuth = async () => {
-        try {
-            console.log("DEBUG: Init Auth Started");
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
-            if (error) {
-                // Handle Refresh Token Error specifically
-                if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
-                    console.warn("DEBUG: Stale session detected. Clearing...", error);
-                    await supabase.auth.signOut();
-                    localStorage.removeItem('sb-eylnuxgwxlhyasigvzdj-auth-token'); // Clear specific token if known, or let signOut handle it
-                    setSession(null);
-                    setAuthLoading(false);
-                    return;
-                }
-                throw error;
-            }
-
-            console.log("DEBUG: Session Retrieved", session?.user?.email);
-
-            if (mounted) setSession(session);
-            
-            if (session?.user?.email) {
-                // Safe fetch from new central table
-                console.log("DEBUG: Fetching User Profile...");
-                
-                // Safety Timeout: If fetch takes > 5s, proceed as null (Guest/Login)
-                const timeoutPromise = new Promise(resolve => setTimeout(() => {
-                    console.warn("DEBUG: Profile fetch timed out!");
-                    resolve(null);
-                }, 5000));
-
-                const profile = await Promise.race([
-                    fetchUserProfile(session.user.email),
-                    timeoutPromise
-                ]);
-                
-                console.log("DEBUG: Profile Result:", profile);
-
-                if (profile) {
-                    if (mounted) {
-                        setUserProfile(profile as any);
-                    }
-                } else {
-                    console.warn("DEBUG: Profile not found for session, forcing logout.");
-                    await supabase.auth.signOut();
-                    if (mounted) setSession(null);
-                }
-            }
-        } catch (error) {
-            console.error("Auth init failed:", error);
-            await supabase.auth.signOut();
-            if (mounted) setSession(null);
-        } finally {
-            console.log("DEBUG: Setting authLoading = false");
-            if (mounted) setAuthLoading(false);
-        }
-    };
-
-    initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-      setSession(session);
-      
-      if (session?.user?.email) {
-          const profile = await fetchUserProfile(session.user.email);
-          if (mounted) {
-            if (profile) {
-                setUserProfile(profile);
-            } else {
-                // Critical Fix: If session exists but profile doesn't, kill the session.
-                console.warn("DEBUG: Profile missing in AuthChange, signing out.");
-                await supabase.auth.signOut();
-                setSession(null);
-            }
-          }
-      } else {
-         if (mounted) setUserProfile(null);
-      }
-    });
-
-    return () => {
-        mounted = false;
-        subscription.unsubscribe();
-    };
-  }, []);
 
   // Data Fetching
   useEffect(() => {
@@ -407,7 +312,7 @@ export default function App() {
                 const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'executive';
 
                 if (hasAccess) {
-                    return <SettingsView />;
+                    return <SettingsView userRole={userProfile?.role} />;
                 }
 
                 // Access Denied State
