@@ -255,7 +255,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
       
       {/* 1. New Managerial Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {cards.map((card, idx) => {
+        {cards.map((card) => {
              const isPositive = card.delta >= 0;
              const isGood = card.inverseTrend ? !isPositive : isPositive;
              const trendColor = isGood ? 'text-emerald-600' : 'text-red-500';
@@ -263,7 +263,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
              const showTrend = card.delta !== 0 && card.prevValue !== '---';
 
              return (
-                <div key={idx} className="bg-white rounded-3xl p-5 shadow-lg shadow-indigo-500/5 border border-slate-100 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                <div key={card.title} className="bg-white rounded-3xl p-5 shadow-lg shadow-indigo-500/5 border border-slate-100 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
                     <div>
                         <div className="flex items-center gap-3 mb-4">
                             <div className={`h-10 w-10 rounded-xl ${card.color} shadow-lg shadow-indigo-500/20 flex items-center justify-center shrink-0`}>

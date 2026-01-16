@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { CampaignData } from '../types';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ExternalLink, ImageIcon, Trophy } from 'lucide-react';
+import { ExternalLink, ImageIcon, Trophy, Image as LucideImage } from 'lucide-react';
+import { SafeImage } from './ui/SafeImage';
 import {
   Dialog,
   DialogContent,
@@ -163,20 +164,29 @@ export const TopCreativesWidget: React.FC<Props> = ({ data }) => {
                             </TableCell>
                         </TableRow>
                     )}
-                    {topAds.map((ad, idx) => (
-                        <TableRow key={idx} className="group hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                    {topAds.map((ad) => (
+                        <TableRow key={ad.id} className="group hover:bg-slate-50/80 transition-colors border-b border-slate-100">
                             {/* Preview */}
                             <TableCell className="text-center py-3">
                                 {ad.imageUrl ? (
                                     <Dialog>
                                         <DialogTrigger asChild>
                                             <div className="relative h-12 w-12 mx-auto cursor-pointer rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:ring-2 hover:ring-indigo-500/20 hover:scale-105 transition-all bg-slate-100">
-                                                <img src={ad.imageUrl} alt={ad.name} className="h-full w-full object-cover" />
+                                                <SafeImage 
+                                                    src={ad.imageUrl} 
+                                                    alt={ad.name} 
+                                                    fallbackIcon={<LucideImage size={18} className="text-slate-300" />}
+                                                />
                                             </div>
                                         </DialogTrigger>
                                         <DialogContent className="max-w-screen-md p-0 bg-transparent border-none shadow-none">
                                             <div className="relative flex flex-col items-center">
-                                                <img src={ad.imageUrl} alt={ad.name} className="max-h-[80vh] w-auto rounded-xl shadow-2xl border-4 border-white" />
+                                                <SafeImage 
+                                                    src={ad.imageUrl} 
+                                                    alt={ad.name} 
+                                                    className="max-h-[80vh] w-auto rounded-xl shadow-2xl border-4 border-white"
+                                                    containerClassName="h-auto w-auto"
+                                                />
                                             </div>
                                         </DialogContent>
                                     </Dialog>
