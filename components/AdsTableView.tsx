@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CampaignData } from '../types';
+import { SafeImage } from './ui/SafeImage';
 import { 
   Search, 
   Download, 
@@ -221,36 +222,21 @@ export const AdsTableView: React.FC<Props> = ({ data }) => {
                 ) : (
                     paginatedAds.map((ad, idx) => (
                         <TableRow key={ad.ad_id} className={cn("hover:bg-slate-50/80 transition-colors", idx % 2 === 0 ? "bg-white" : "bg-slate-50/30")}>
-                            
                             {/* 1. Thumbnail */}
                             <TableCell>
                                 <div className="group relative h-10 w-10 overflow-hidden rounded border border-slate-200 bg-slate-100 flex-shrink-0">
-                                    {ad.ad_image_url ? (
-                                        <>
-                                            <img 
-                                                src={ad.ad_image_url} 
-                                                alt="" 
-                                                className="h-full w-full object-cover" 
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                    e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
-                                                }}
-                                            />
-                                            <div className="hidden group-hover:block fixed z-50 ml-12 -mt-10 rounded-lg border-2 border-white shadow-xl w-[200px] h-auto overflow-hidden pointer-events-none bg-white">
-                                                 <img 
-                                                    src={ad.ad_image_url} 
-                                                    alt="" 
-                                                    className="w-full h-auto" 
-                                                    onError={(e) => {
-                                                        const parent = e.currentTarget.parentElement;
-                                                        if (parent) parent.style.display = 'none';
-                                                    }}
-                                                 />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center">
-                                            <ImageIcon className="h-4 w-4 text-slate-300" />
+                                    <SafeImage 
+                                        src={ad.ad_image_url}
+                                        fallbackIcon={<ImageIcon size={14} className="text-slate-300" />}
+                                        fallbackText="!"
+                                    />
+                                    {ad.ad_image_url && (
+                                        <div className="hidden group-hover:block fixed z-50 ml-12 -mt-10 rounded-lg border-2 border-white shadow-xl w-[200px] h-auto overflow-hidden pointer-events-none bg-white">
+                                                <SafeImage 
+                                                    src={ad.ad_image_url}
+                                                    fallbackText="Imagem expirada na Meta"
+                                                    containerClassName="p-4"
+                                                />
                                         </div>
                                     )}
                                 </div>

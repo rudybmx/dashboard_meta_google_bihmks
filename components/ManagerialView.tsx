@@ -22,16 +22,27 @@ interface Props {
   kpiData?: KPIData | null;
   selectedFranchisee: string;
   selectedClient: string;
+  externalTotalBalance?: number;
 }
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
-export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpiData, selectedFranchisee, selectedClient }) => {
+export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpiData, selectedFranchisee, selectedClient, externalTotalBalance }) => {
   const [totalBalance, setTotalBalance] = useState<number>(0);
+
+  // Update internal balance if external is provided
+  useEffect(() => {
+      if (typeof externalTotalBalance === 'number') {
+          setTotalBalance(externalTotalBalance);
+      }
+  }, [externalTotalBalance]);
 
   // Fetch and Filter Balance Data (Date Range Independent)
   useEffect(() => {
+     // Skip internal load if external data is provided
+     if (typeof externalTotalBalance === 'number') return;
+
      let mounted = true;
      const loadBalance = async () => {
         try {
@@ -102,7 +113,9 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
     };
 
     // 1. IF RPC DATA IS AVAILABLE -> USE IT (Fast & Accurate)
-    if (kpiData) {
+    // ONLY if no specific UI filters (Franchise/Client) are active, 
+    // because kpiData is the global total comparison for the user scope.
+    if (kpiData && !selectedFranchisee && !selectedClient) {
          // Calculate Derived Metrics
          const cpl = kpiData.current_leads > 0 ? kpiData.current_spend / kpiData.current_leads : 0;
          const prevCpl = kpiData.prev_leads > 0 ? kpiData.prev_spend / kpiData.prev_leads : 0;

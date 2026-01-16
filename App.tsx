@@ -11,8 +11,8 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { DemographicsGeoView } from './components/DemographicsGeoView';
 import { AdsTableView } from './components/AdsTableView';
 import { SummaryView } from './components/SummaryView';
-import { fetchCampaignData, fetchFranchises, fetchKPIComparison } from './services/supabaseService';
-import { CampaignData, Franchise } from './types';
+import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts } from './services/supabaseService';
+import { CampaignData, Franchise, SummaryReportRow } from './types';
 import { Loader2, Shield, AlertTriangle } from 'lucide-react';
 import { RangeValue } from './components/ui/calendar';
 import { subDays } from 'date-fns';
@@ -30,6 +30,9 @@ export default function App() {
   const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary'>('dashboard');
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
+  const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
+  const [totalBalance, setTotalBalance] = useState<number>(0);
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
   // Filter States
   const [selectedFranchise, setSelectedFranchise] = useState<string>('');
@@ -38,6 +41,14 @@ export default function App() {
       start: subDays(new Date(), 30),
       end: new Date()
   });
+
+  // Estabilizar datas para evitar triggers de useEffect desnecessários
+  const stableDates = useMemo(() => {
+    return {
+      startText: dateRange?.start ? dateRange.start.toISOString() : '',
+      endText: dateRange?.end ? dateRange.end.toISOString() : ''
+    };
+  }, [dateRange?.start, dateRange?.end]);
 
   // Derived Values - Declared before useEffect to avoid hoisting issues
   const availableFranchises = useMemo(() => {
@@ -80,8 +91,8 @@ export default function App() {
     const loadData = async () => {
       setLoading(true);
       try {
-        const start = dateRange?.start || subDays(new Date(), 30);
-        const end = dateRange?.end || new Date();
+        const start = stableDates.startText ? new Date(stableDates.startText) : subDays(new Date(), 30);
+        const end = stableDates.endText ? new Date(stableDates.endText) : new Date();
 
         // Para usuários multi-franqueados, passamos a lista de nomes/IDs permitidos
         const franchiseNames = franchiseString ? franchiseString.split(',') : [];
@@ -90,21 +101,36 @@ export default function App() {
         console.log('[App] Loading data with stable filters:', { 
             role: userProfile.role, 
             franchises: franchiseNames, 
-            accounts: accountIds 
+            accounts: accountIds,
+            dates: { start, end }
         });
 
-        const [campaignResult, franchiseList, kpiResult] = await Promise.all([
+        const [campaignResult, kpiResult, summaryResult, allAccounts] = await Promise.all([
              fetchCampaignData(start, end, franchiseNames, accountIds),
-             fetchFranchises(),
-             fetchKPIComparison(start, end, franchiseNames, accountIds)
+             fetchKPIComparison(start, end, franchiseNames, accountIds),
+             fetchSummaryReport(start, end, franchiseNames, accountIds),
+             fetchMetaAccounts()
         ]);
         
         setData(campaignResult.current);
         setFormattedComparisonData(campaignResult.previous);
         setKpiRpcData(kpiResult);
-        setOfficialFranchises(franchiseList);
+        setSummaryData(summaryResult);
         setIsDemoMode(campaignResult.isMock);
         if (campaignResult.isMock) setConnectionError(campaignResult.error);
+
+        // Calculate Balance (Date Independent but respects filter)
+        const filteredBalance = allAccounts
+            .filter(acc => {
+                // We use accountIds if provided to filter balance too, or franchise names
+                const matchFranchise = franchiseNames.length === 0 || franchiseNames.includes(acc.franchise_id);
+                const matchAccount = accountIds.length === 0 || accountIds.includes(acc.account_id);
+                return matchFranchise && matchAccount;
+            })
+            .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+        
+        setTotalBalance(filteredBalance);
+        setIsDataLoaded(true);
 
       } catch (err) {
         console.error("Critical Failure:", err);
@@ -114,7 +140,22 @@ export default function App() {
     };
 
     loadData();
-  }, [session, userProfile?.id, dateRange?.start, dateRange?.end, franchiseString, accountString]);
+    // VITAL: Usar strings estáveis como dependência, nunca objetos/arrays diretamente
+  }, [session, userProfile?.id, stableDates.startText, stableDates.endText, franchiseString, accountString]);
+
+  // Separate Effect for Franchises (Only once or when profile changes)
+  useEffect(() => {
+    if (!session) return;
+    const loadFranchises = async () => {
+        try {
+            const list = await fetchFranchises();
+            setOfficialFranchises(list);
+        } catch (e) {
+            console.error("Failed to load franchises", e);
+        }
+    };
+    loadFranchises();
+  }, [session]);
 
   // Filters Reset
   useEffect(() => { setSelectedAccount(''); }, [selectedFranchise]);
@@ -205,9 +246,20 @@ export default function App() {
                 dateRange={dateRange} 
                 allowedFranchises={availableFranchises.map(f => f.name)}
                 allowedAccounts={userProfile?.assigned_account_ids}
+                externalSummaryData={summaryData}
+                externalLoading={loading && !isDataLoaded}
               />
             )}
-            {activeView === 'dashboard' && <ManagerialView data={filteredData} comparisonData={comparisonData} kpiData={kpiRpcData} selectedFranchisee={selectedFranchise} selectedClient={selectedAccount} />}
+            {activeView === 'dashboard' && (
+              <ManagerialView 
+                 data={filteredData} 
+                 comparisonData={comparisonData} 
+                 kpiData={kpiRpcData} 
+                 selectedFranchisee={selectedFranchise} 
+                 selectedClient={selectedAccount} 
+                 externalTotalBalance={totalBalance}
+              />
+            )}
             {activeView === 'executive' && <DashboardOverview data={filteredData} />}
             {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
             {activeView === 'ads' && <AdsTableView data={filteredData} />}

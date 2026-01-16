@@ -13,9 +13,16 @@ interface Props {
   dateRange: { from: Date; to: Date } | undefined;
   allowedFranchises?: string[]; // IDs/Names permitted for the user
   allowedAccounts?: string[];    // Account IDs permitted
+  
+  // External Data (Persistence)
+  externalSummaryData?: SummaryReportRow[];
+  externalLoading?: boolean;
 }
 
 interface AggregatedAccountStats {
+// ... (lines 18-47 unchanged)
+// [Skipping unchanged lines for brevity in replacement but I must provide full target if I use replace_file_content]
+// I'll use a better target content below.
   account_name: string;
   spend: number;
   purchases: number;
@@ -51,30 +58,39 @@ export const SummaryView: React.FC<Props> = ({
   selectedClient, 
   dateRange,
   allowedFranchises,
-  allowedAccounts
+  allowedAccounts,
+  externalSummaryData,
+  externalLoading
 }) => {
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMSG, setErrorMSG] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
 
+  // Update internal summaryData if external is provided
+  useEffect(() => {
+    if (externalSummaryData) {
+        setSummaryData(externalSummaryData);
+        setLoading(!!externalLoading);
+    }
+  }, [externalSummaryData, externalLoading]);
+
   // Use passed date range or default to last 30 days
   // Handles both { from, to } and { start, end } formats to prevent fallback loop
-  const { start, end } = useMemo(() => {
-     // Handle 'from/to' (Standard)
-     if (dateRange?.from && dateRange.to) {
-         return { start: dateRange.from, end: dateRange.to };
-     }
-     // Handle 'start/end' (Legacy/App.tsx)
-     if ((dateRange as any)?.start && (dateRange as any)?.end) {
-         return { start: (dateRange as any).start, end: (dateRange as any).end };
-     }
-
-     const e = new Date();
-     const s = new Date();
-     s.setDate(s.getDate() - 30);
-     return { start: s, end: e };
-  }, [dateRange]); // Dependency on dateRange object reference (stable from App state)
+  // Estabilizar datas e strings para evitar loops infinitos
+  const { startText, endText } = useMemo(() => {
+    const from = dateRange?.from || (dateRange as any)?.start;
+    const to = dateRange?.to || (dateRange as any)?.end;
+    
+    if (from && to) {
+      return { startText: from.toISOString(), endText: to.toISOString() };
+    }
+    
+    const e = new Date();
+    const s = new Date();
+    s.setDate(s.getDate() - 30);
+    return { startText: s.toISOString(), endText: e.toISOString() };
+  }, [dateRange]); 
   
   // Stabilize arrays from props to prevent infinite effect loops
   const stableAllowedFranchises = useMemo(() => 
@@ -87,13 +103,19 @@ export const SummaryView: React.FC<Props> = ({
   );
 
   useEffect(() => {
+    // Skip internal load if external data is provided
+    if (externalSummaryData) return;
+
     let mounted = true;
     const loadReport = async () => {
       setLoading(true);
       try {
+        const start = new Date(startText);
+        const end = new Date(endText);
         const franchises = stableAllowedFranchises ? stableAllowedFranchises.split(',') : undefined;
         const accounts = stableAllowedAccounts ? stableAllowedAccounts.split(',') : undefined;
         
+        console.log('[SummaryView] Loading report with filters:', { start, end, franchises, accounts });
         const report = await fetchSummaryReport(start, end, franchises, accounts);
         
         if (mounted) {
@@ -109,7 +131,8 @@ export const SummaryView: React.FC<Props> = ({
     };
     loadReport();
     return () => { mounted = false; };
-  }, [selectedFranchisee, selectedClient, start, end, stableAllowedFranchises, stableAllowedAccounts]); 
+    // VITAL: Usar strings primitivas no array de dependências para evitar loops
+  }, [selectedFranchisee, selectedClient, startText, endText, stableAllowedFranchises, stableAllowedAccounts]); 
 
   const filteredList = useMemo(() => {
       return summaryData.filter(row => {
@@ -208,7 +231,7 @@ export const SummaryView: React.FC<Props> = ({
                     const freq = row.alcance > 0 ? row.impressoes / row.alcance : 0;
 
                     // Fallback for Bug #6: Missing Account Name
-                    const accId = row.meta_account_id || (row as any).account_id || '---';
+                    const accId = row.meta_account_id || (row as any).account_id || 'ID Desconhecido';
                     const accountName = row.nome_conta && row.nome_conta.trim() !== '' 
                       ? row.nome_conta 
                       : `Conta ${accId}`;
