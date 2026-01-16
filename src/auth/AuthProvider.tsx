@@ -96,15 +96,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     .eq('email', currentSession.user.email)
                     .maybeSingle();
 
-                if (profileError && profileError.code !== 'PGRST116') {
-                    throw profileError;
+                if (profileError) {
+                    // Check for common Supabase/PostgREST schema or connection errors
+                    if (profileError.code === 'PGRST116') {
+                        // This is "no rows returned", which is expected if maybeSingle is used and no row exists
+                        // But we already handle !profileData below.
+                    } else if (profileError.message?.includes('schema') || profileError.code?.startsWith('42') || profileError.code?.startsWith('P0')) {
+                       console.error('[Auth] Erro de Schema/Estrutura detectado:', profileError);
+                       if (isMounted) {
+                           setError('Erro interno de banco de dados (Schema). Por favor, execute o script de correção no painel do Supabase.');
+                       }
+                       return;
+                    } else {
+                        throw profileError;
+                    }
                 }
 
                 if (!profileData) {
-                    console.error('[Auth] Perfil não encontrado no banco de dados');
+                    console.error('[Auth] Perfil não encontrado no banco de dados para:', currentSession.user.email);
                     if (isMounted) {
-                        setError('Perfil de usuário não encontrado. Contate o suporte.');
-                        // Deslogar usuário sem perfil
+                        setError('Seu perfil de usuário não foi encontrado. Se você acabou de criar a conta, aguarde alguns segundos ou verifique se o administrador executou o script de permissões.');
+                        // Deslogar usuário sem perfil para evitar loop de carregamento
                         await supabase.auth.signOut();
                         setSession(null);
                         setUserProfile(null);
