@@ -169,6 +169,11 @@ export const CreativesView: React.FC<Props> = ({ data }) => {
                                     src={ad.ad_image_url} 
                                     alt={ad.ad_name} 
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    onError={(e) => {
+                                        console.warn('[Creative] Erro ao carregar imagem:', ad.ad_image_url);
+                                        e.currentTarget.style.display = 'none'; // Esconde imagem quebrada
+                                        e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
+                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">

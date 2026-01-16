@@ -11,6 +11,8 @@ interface Props {
   selectedFranchisee: string; 
   selectedClient: string;
   dateRange: { from: Date; to: Date } | undefined;
+  allowedFranchises?: string[]; // IDs/Names permitted for the user
+  allowedAccounts?: string[];    // Account IDs permitted
 }
 
 interface AggregatedAccountStats {
@@ -43,13 +45,19 @@ const fmtInt = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
 const fmtPct = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(value / 100);
 const fmtDec = (value: number) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selectedClient, dateRange }) => {
+export const SummaryView: React.FC<Props> = ({ 
+  data, 
+  selectedFranchisee, 
+  selectedClient, 
+  dateRange,
+  allowedFranchises,
+  allowedAccounts
+}) => {
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMSG, setErrorMSG] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
 
-  // Use passed date range or default to last 30 days
   // Use passed date range or default to last 30 days
   // Handles both { from, to } and { start, end } formats to prevent fallback loop
   const { start, end } = useMemo(() => {
@@ -62,10 +70,6 @@ export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selecte
          return { start: (dateRange as any).start, end: (dateRange as any).end };
      }
 
-     // FALLBACK: Use precise timestamps to avoid drift, but still creates new content on every render
-     // To fix infinite loop: Ensure this fallback is stable if dateRange is undefined.
-     // However, simpler fix is to ensure dateRange is always valid from parent.
-     // For now, we return standard last 30 days.
      const e = new Date();
      const s = new Date();
      s.setDate(s.getDate() - 30);
@@ -77,7 +81,7 @@ export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selecte
     const loadReport = async () => {
       setLoading(true);
       try {
-        const report = await fetchSummaryReport(start, end);
+        const report = await fetchSummaryReport(start, end, allowedFranchises, allowedAccounts);
         
         if (mounted) {
             setSummaryData(report);
@@ -92,7 +96,7 @@ export const SummaryView: React.FC<Props> = ({ data, selectedFranchisee, selecte
     };
     loadReport();
     return () => { mounted = false; };
-  }, [selectedFranchisee, selectedClient, start, end]); 
+  }, [selectedFranchisee, selectedClient, start, end, allowedFranchises, allowedAccounts]); 
 
   const filteredList = useMemo(() => {
       return summaryData.filter(row => {

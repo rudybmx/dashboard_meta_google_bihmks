@@ -39,6 +39,29 @@ export default function App() {
       end: new Date()
   });
 
+  // Derived Values - Declared before useEffect to avoid hoisting issues
+  const availableFranchises = useMemo(() => {
+     if (!userProfile) return [];
+     if (userProfile.role === 'admin' || userProfile.role === 'executive') return officialFranchises;
+     if (userProfile.role === 'client') return [];
+     
+     // Garantir que assigned_franchise_ids é sempre um array
+     const assignedIds = Array.isArray(userProfile.assigned_franchise_ids) 
+        ? userProfile.assigned_franchise_ids 
+        : [];
+
+     console.log('[Filter/App] Role:', userProfile.role);
+     console.log('[Filter/App] Assigned Values:', assignedIds);
+     
+     // Tentamos filtrar por ID ou NAME para ser resiliente
+     const filtered = officialFranchises.filter(f => 
+        assignedIds.includes(f.id) || assignedIds.includes(f.name)
+     );
+
+     console.log('[Filter/App] Result:', filtered);
+     return filtered;
+  }, [userProfile, officialFranchises]);
+
   // Load Data
   useEffect(() => {
     if (!session || !userProfile) return; 
@@ -49,10 +72,21 @@ export default function App() {
         const start = dateRange?.start || subDays(new Date(), 30);
         const end = dateRange?.end || new Date();
 
+        // Para usuários multi-franqueados, passamos a lista de nomes/IDs permitidos
+        // O SupabaseService cuidará de filtrar as queries por esses valores
+        const franchiseNames = availableFranchises.map(f => f.name);
+        const accountIds = userProfile.assigned_account_ids || [];
+
+        console.log('[App] Loading data with filters:', { 
+            role: userProfile.role, 
+            franchises: franchiseNames, 
+            accounts: accountIds 
+        });
+
         const [campaignResult, franchiseList, kpiResult] = await Promise.all([
-             fetchCampaignData(start, end),
+             fetchCampaignData(start, end, franchiseNames, accountIds),
              fetchFranchises(),
-             fetchKPIComparison(start, end)
+             fetchKPIComparison(start, end, franchiseNames, accountIds)
         ]);
         
         setData(campaignResult.current);
@@ -70,19 +104,10 @@ export default function App() {
     };
 
     loadData();
-  }, [session, userProfile, dateRange]);
+  }, [session, userProfile, dateRange, availableFranchises]);
 
   // Filters Reset
   useEffect(() => { setSelectedAccount(''); }, [selectedFranchise]);
-
-  // Derived Values
-  const availableFranchises = useMemo(() => {
-     if (!userProfile) return [];
-     if (userProfile.role === 'admin' || userProfile.role === 'executive') return officialFranchises;
-     if (userProfile.role === 'client') return [];
-     const assignedIds = userProfile.assigned_franchise_ids || [];
-     return officialFranchises.filter(f => assignedIds.includes(f.id));
-  }, [userProfile, officialFranchises]);
 
   const filteredData = useMemo(() => {
     return data.filter(d => {
@@ -162,7 +187,16 @@ export default function App() {
           <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
             {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
 
-            {activeView === 'summary' && <SummaryView data={filteredData} selectedFranchisee={selectedFranchise} selectedClient={selectedAccount} dateRange={dateRange} />}
+            {activeView === 'summary' && (
+              <SummaryView 
+                data={filteredData} 
+                selectedFranchisee={selectedFranchise} 
+                selectedClient={selectedAccount} 
+                dateRange={dateRange} 
+                allowedFranchises={availableFranchises.map(f => f.name)}
+                allowedAccounts={userProfile?.assigned_account_ids}
+              />
+            )}
             {activeView === 'dashboard' && <ManagerialView data={filteredData} comparisonData={comparisonData} kpiData={kpiRpcData} selectedFranchisee={selectedFranchise} selectedClient={selectedAccount} />}
             {activeView === 'executive' && <DashboardOverview data={filteredData} />}
             {activeView === 'campaigns' && <CampaignsView data={filteredData} />}

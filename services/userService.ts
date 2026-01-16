@@ -19,7 +19,7 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
 export const createUser = async (userData: UserFormData): Promise<UserProfile | null> => {
     console.log("DEBUG: Using RPC for User Creation"); // Force HMR & Debug
     // Call the Secure RPC that handles Auth + Profile creation atomically
-    const { data: rpcData, error: rpcError } = await supabase.rpc('create_platform_user', {
+    const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('create_platform_user', {
         p_email: userData.email,
         p_password: userData.password || 'Mudar123!', 
         p_name: userData.name,
@@ -45,33 +45,28 @@ export const createUser = async (userData: UserFormData): Promise<UserProfile | 
 };
 
 export const updateUser = async (id: string, updates: Partial<UserFormData>): Promise<UserProfile | null> => {
-    // Map Frontend 'name' to DB 'nome'
-    const payload: any = { ...updates };
-    if (payload.name) {
-        payload.nome = payload.name;
-        delete payload.name;
-    }
-    delete payload.password; 
-    delete payload.id;
+    console.log("DEBUG: Using RPC for User Update");
 
-    const { data, error } = await supabase
-        .from(TABLE_USERS)
-        .update(payload)
-        .eq('id', id)
-        .select('id, email, name:nome, role, assigned_franchise_ids, assigned_account_ids, created_at')
-        .single();
+    const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('update_platform_user', {
+        p_user_id: id,
+        p_nome: updates.name || '',
+        p_role: updates.role || 'client',
+        p_franchises: updates.assigned_franchise_ids || [],
+        p_account_ids: updates.assigned_account_ids || []
+    });
 
-    if (error) {
-        console.error('Error updating user:', error);
-        throw error;
+    if (rpcError) {
+        console.error('Error updating user (RPC):', rpcError);
+        throw rpcError;
     }
-    return data as unknown as UserProfile;
+
+    return rpcData as unknown as UserProfile;
 };
 
 export const deleteUser = async (id: string) => {
     console.log("DEBUG: Using RPC for User Deletion"); // Force HMR
     // Securely delete from Auth and Public tables via RPC
-    const { error } = await supabase.rpc('delete_platform_user', {
+    const { error } = await (supabase.rpc as any)('delete_platform_user', {
         p_user_id: id
     });
 
@@ -82,7 +77,7 @@ export const deleteUser = async (id: string) => {
 };
 
 export const resetUserPassword = async (userId: string, newPassword: string) => {
-    const { data, error } = await supabase.rpc('reset_platform_user_password', {
+    const { data, error } = await (supabase.rpc as any)('reset_platform_user_password', {
         p_user_id: userId,
         p_new_password: newPassword
     });

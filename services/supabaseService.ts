@@ -18,6 +18,20 @@ import { getPreviousPeriod, formatDateForDB } from '../lib/dateUtils';
 
 // ... (existing fetchCampaignData logic tailored for Charts/Table remains)
 
+// Helper function for safe array parsing (JSON string to array)
+const parseArrayField = (value: any): string[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 // --- HELPER: Centralized User Access Profile Fetch ---
 let profileCache: Map<string, { data: any, timestamp: number }> = new Map();
 let profileFetchPromises: Map<string, Promise<any>> = new Map();
@@ -51,10 +65,14 @@ export const fetchUserProfile = async (email: string | undefined) => {
                 return null;
             }
 
-            const result = data ? {
+            if (!data) return null;
+
+            const result = {
                 ...data,
                 name: data.nome || email.split('@')[0],
-            } : null;
+                assigned_franchise_ids: parseArrayField(data.assigned_franchise_ids),
+                assigned_account_ids: parseArrayField(data.assigned_account_ids)
+            };
 
             // Update Cache
             profileCache.set(email, { data: result, timestamp: Date.now() });
@@ -74,7 +92,9 @@ export const fetchUserProfile = async (email: string | undefined) => {
 
 export const fetchCampaignData = async (
   startDate: Date, 
-  endDate: Date
+  endDate: Date,
+  franchiseFilter?: string[],
+  accountFilter?: string[]
 ): Promise<{ 
   current: CampaignData[], 
   previous: CampaignData[], 
@@ -88,64 +108,39 @@ export const fetchCampaignData = async (
     const prevStartStr = formatDateForDB(prevStart);
     const prevEndStr = formatDateForDB(prevEnd);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // Permission Variables
-    let assignedFranchises : string[] = [];
-    let assignedAccounts : string[] = [];
-    let isAdmin = false;
-    let isClient = false;
+    // If filters are provided from external (App.tsx), use them. 
+    // Otherwise, we calculate them once here for safety/compatibility.
+    let finalFranchises = franchiseFilter;
+    let finalAccounts = accountFilter;
 
-    if (session?.user?.email) {
-        const profile = await fetchUserProfile(session.user.email);
-        if (profile) {
-            isAdmin = profile.role === 'admin' || profile.role === 'executive';
-            isClient = profile.role === 'client';
-            assignedFranchises = profile.assigned_franchise_ids || [];
-            assignedAccounts = profile.assigned_account_ids || [];
+    if (!finalFranchises && !finalAccounts) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+            const profile = await fetchUserProfile(session.user.email);
+            if (profile) {
+                const isAdmin = profile.role === 'admin' || profile.role === 'executive';
+                if (!isAdmin) {
+                    finalFranchises = profile.assigned_franchise_ids || [];
+                    finalAccounts = profile.assigned_account_ids || [];
+                }
+            }
         }
     }
 
-    // Resolve Franchise Names for ID-based filtering (Legacy column 'franqueado' stores Name)
-    let allowedFranchiseNames: string[] = [];
-    if (!isAdmin && !isClient && assignedFranchises.length > 0) {
-        const { data: nameData } = await supabase.from('tb_franqueados').select('nome').in('id', assignedFranchises);
-        if (nameData) allowedFranchiseNames = nameData.map(f => f.nome).filter(n => n !== null) as string[];
-    }
-
-    // Helper to build a query
-    const buildQuery = (start: string, end: string) => {
-        let q = supabase.from(VIEW_NAME).select('*')
-            .gte('date_start', start)
-            .lte('date_start', end);
-        
-        // 1. Client Level Filter (Highest Priority)
-        if (!isAdmin && (isClient || assignedAccounts.length > 0)) {
-            // If user has specific accounts assigned, restrict to them ONLY.
-            // (Even if they technically have franchise IDs, account level is more granular)
-             if (assignedAccounts.length > 0) {
-                q = q.in('account_id', assignedAccounts);
-             } else {
-                // Client with no accounts? Block access.
-                q = q.in('account_id', ['__NO_ACCESS__']);
-             }
-        } 
-        // 2. Franchise Level Filter
-        else if (!isAdmin && allowedFranchiseNames.length > 0) {
-            q = q.in('franqueado', allowedFranchiseNames);
-        } 
-        // 3. Fallback Block
-        else if (!isAdmin) {
-             // Not admin, no accounts, no franchises -> Block
-             q = q.in('franqueado', ['__NO_ACCESS__']);
-        }
-        
-        return q;
-    };
-
+    // Call RPC for performance and accurate filtering
     const [currRes, prevRes] = await Promise.all([
-        buildQuery(currentStartStr, currentEndStr),
-        buildQuery(prevStartStr, prevEndStr)
+        (supabase.rpc as any)('get_campaign_summary', {
+            p_start_date: currentStartStr,
+            p_end_date: currentEndStr,
+            p_franchise_ids: finalFranchises || [],
+            p_account_ids: finalAccounts || []
+        }),
+        (supabase.rpc as any)('get_campaign_summary', {
+            p_start_date: prevStartStr,
+            p_end_date: prevEndStr,
+            p_franchise_ids: finalFranchises || [],
+            p_account_ids: finalAccounts || []
+        })
     ]);
 
     if (currRes.error) throw new Error(`Current Query Error: ${currRes.error.message}`);
@@ -221,48 +216,40 @@ export const fetchCampaignData = async (
  * Fetches aggregated KPI comparison directly from Database RPC.
  * Guaranteed to be accurate for MoM calculations.
  */
-export const fetchKPIComparison = async (startDate: Date, endDate: Date) => {
+export const fetchKPIComparison = async (
+    startDate: Date, 
+    endDate: Date,
+    franchiseFilter?: string[],
+    accountFilter?: string[]
+) => {
     try {
         const { start: prevStart, end: prevEnd } = getPreviousPeriod(startDate, endDate);
-        const { data: { session } } = await supabase.auth.getSession();
         
-        // RBAC logic
-        let franchiseFilter: string[] | null = null;
-        let accountFilter: string[] | null = null;
+        let finalFranchises = franchiseFilter;
+        let finalAccounts = accountFilter;
 
-        if (session?.user?.email) {
-            const profile = await fetchUserProfile(session.user.email);
-
-            if (profile) {
-                const isAdmin = profile.role === 'admin' || profile.role === 'executive';
-                const isClient = profile.role === 'client';
-
-                if (!isAdmin) {
-                    // Client Level
-                    if (isClient || (profile.assigned_account_ids && profile.assigned_account_ids.length > 0)) {
-                         accountFilter = profile.assigned_account_ids || ['__NO_ACCESS__'];
-                    } 
-                    // Franchise Level
-                    else {
-                        const assigned = profile.assigned_franchise_ids || [];
-                        if (assigned.length > 0) {
-                             const { data: nameData } = await supabase.from('tb_franqueados').select('nome').in('id', assigned);
-                             if (nameData) franchiseFilter = nameData.map(f => f.nome).filter(Boolean) as string[];
-                        } else {
-                            franchiseFilter = ['__NO_ACCESS__']; 
-                        }
+        // Auto-fetch if not provided
+        if (!finalFranchises && !finalAccounts) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.email) {
+                const profile = await fetchUserProfile(session.user.email);
+                if (profile) {
+                    const isAdmin = profile.role === 'admin' || profile.role === 'executive';
+                    if (!isAdmin) {
+                        finalFranchises = profile.assigned_franchise_ids || [];
+                        finalAccounts = profile.assigned_account_ids || [];
                     }
                 }
             }
         }
 
-        const { data, error } = await supabase.rpc('get_kpi_comparison', {
+        const { data, error } = await (supabase.rpc as any)('get_kpi_comparison', {
             p_start_date: formatDateForDB(startDate),
             p_end_date: formatDateForDB(endDate),
             p_prev_start_date: formatDateForDB(prevStart),
             p_prev_end_date: formatDateForDB(prevEnd),
-            p_franchise_filter: franchiseFilter,
-            p_account_filter: accountFilter // New Parameter
+            p_franchise_filter: (finalFranchises && finalFranchises.length > 0) ? finalFranchises : null,
+            p_account_filter: (finalAccounts && finalAccounts.length > 0) ? finalAccounts : null
         });
 
         if (error) {
@@ -278,31 +265,35 @@ export const fetchKPIComparison = async (startDate: Date, endDate: Date) => {
     }
 };
 
-export const fetchSummaryReport = async (startDate: Date, endDate: Date): Promise<SummaryReportRow[]> => {
+export const fetchSummaryReport = async (
+    startDate: Date, 
+    endDate: Date,
+    franchiseFilter?: string[],
+    accountFilter?: string[]
+): Promise<SummaryReportRow[]> => {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user?.email) return [];
+        let finalFranchiseFilter = franchiseFilter;
+        let finalAccountFilter = accountFilter;
 
-        const user = await fetchUserProfile(session.user.email);
-        
-        let franchiseFilter: string[] | null = null;
-        let accountFilter: string[] | null = null;
-
-        if (user) {
-            if (user.role === 'admin' || user.role === 'executive') {
-                // No filters
-            } else if (user.role === 'multifranqueado' || user.role === 'franqueado') {
-                franchiseFilter = user.assigned_franchise_ids || [];
-            } else if (user.role === 'client') {
-                accountFilter = user.assigned_account_ids || [];
+        if (!finalFranchiseFilter && !finalAccountFilter) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.email) {
+                const profile = await fetchUserProfile(session.user.email);
+                if (profile) {
+                    const isAdmin = profile.role === 'admin' || profile.role === 'executive';
+                    if (!isAdmin) {
+                        finalFranchiseFilter = profile.assigned_franchise_ids || [];
+                        finalAccountFilter = profile.assigned_account_ids || [];
+                    }
+                }
             }
         }
 
-        const { data, error } = await supabase.rpc('get_managerial_data', {
+        const { data, error } = await (supabase.rpc as any)('get_managerial_data', {
             p_start_date: format(startDate, 'yyyy-MM-dd'),
             p_end_date: format(endDate, 'yyyy-MM-dd'),
-            p_franchise_filter: franchiseFilter,
-            p_account_filter: accountFilter
+            p_franchise_filter: (finalFranchiseFilter && finalFranchiseFilter.length > 0) ? finalFranchiseFilter : null,
+            p_account_filter: (finalAccountFilter && finalAccountFilter.length > 0) ? finalAccountFilter : null
         });
 
         if (error) {
@@ -440,7 +431,7 @@ export const fetchFranchises = async () => {
 
 export const createFranchise = async (name: string) => {
     // Uses Secure RPC to ensure Admin rights and bypass RLS complexities
-    const { data, error } = await supabase.rpc('create_franchise_unit', {
+    const { data, error } = await (supabase.rpc as any)('create_franchise_unit', {
         p_name: name
     });
     
@@ -449,16 +440,17 @@ export const createFranchise = async (name: string) => {
         throw error;
     }
 
+    const franchiseData = data as any;
     return {
-        id: data.id,
-        name: data.nome || '',
-        active: data.ativo || false
+        id: franchiseData.id,
+        name: franchiseData.nome || '',
+        active: franchiseData.ativo || false
     };
 };
 
 export const deleteFranchise = async (id: string) => {
     console.log("DEBUG: Using RPC for Franchise Hard Delete");
-    const { error } = await supabase.rpc('delete_franchise_unit', {
+    const { error } = await (supabase.rpc as any)('delete_franchise_unit', {
         p_id: id
     });
         

@@ -112,6 +112,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     return;
                 }
 
+                // Helper para parsing seguro de campos JSON/Array
+                const parseArrayField = (value: any): string[] => {
+                    if (Array.isArray(value)) return value;
+                    if (typeof value === 'string') {
+                        try {
+                            const parsed = JSON.parse(value);
+                            return Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                            return [];
+                        }
+                    }
+                    return [];
+                };
+
                 // Perfil encontrado
                 const pData = profileData as any;
                 const profile: UserProfile = {
@@ -119,11 +133,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     email: pData.email || currentSession.user.email,
                     name: pData.nome || currentSession.user.email?.split('@')[0] || 'Usuário',
                     role: (pData.role as UserRole) || 'client',
-                    assigned_franchise_ids: pData.assigned_franchise_ids || [],
-                    assigned_account_ids: pData.assigned_account_ids || [],
+                    assigned_franchise_ids: parseArrayField(pData.assigned_franchise_ids),
+                    assigned_account_ids: parseArrayField(pData.assigned_account_ids),
                     permissions: pData.permissions,
                     created_at: pData.created_at,
                 };
+
+                console.log('[Auth] Perfil processado:', {
+                    email: profile.email,
+                    role: profile.role,
+                    franchises: profile.assigned_franchise_ids
+                });
 
                 if (isMounted) {
                     setSession(currentSession);
