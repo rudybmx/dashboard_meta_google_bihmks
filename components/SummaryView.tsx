@@ -76,12 +76,25 @@ export const SummaryView: React.FC<Props> = ({
      return { start: s, end: e };
   }, [dateRange]); // Dependency on dateRange object reference (stable from App state)
   
+  // Stabilize arrays from props to prevent infinite effect loops
+  const stableAllowedFranchises = useMemo(() => 
+    (allowedFranchises || []).sort().join(','), 
+    [allowedFranchises]
+  );
+  const stableAllowedAccounts = useMemo(() => 
+    (allowedAccounts || []).sort().join(','), 
+    [allowedAccounts]
+  );
+
   useEffect(() => {
     let mounted = true;
     const loadReport = async () => {
       setLoading(true);
       try {
-        const report = await fetchSummaryReport(start, end, allowedFranchises, allowedAccounts);
+        const franchises = stableAllowedFranchises ? stableAllowedFranchises.split(',') : undefined;
+        const accounts = stableAllowedAccounts ? stableAllowedAccounts.split(',') : undefined;
+        
+        const report = await fetchSummaryReport(start, end, franchises, accounts);
         
         if (mounted) {
             setSummaryData(report);
@@ -96,7 +109,7 @@ export const SummaryView: React.FC<Props> = ({
     };
     loadReport();
     return () => { mounted = false; };
-  }, [selectedFranchisee, selectedClient, start, end, allowedFranchises, allowedAccounts]); 
+  }, [selectedFranchisee, selectedClient, start, end, stableAllowedFranchises, stableAllowedAccounts]); 
 
   const filteredList = useMemo(() => {
       return summaryData.filter(row => {
@@ -194,11 +207,17 @@ export const SummaryView: React.FC<Props> = ({
                     const cpm = row.impressoes > 0 ? (row.investimento / row.impressoes) * 1000 : 0;
                     const freq = row.alcance > 0 ? row.impressoes / row.alcance : 0;
 
+                    // Fallback for Bug #6: Missing Account Name
+                    const accId = row.meta_account_id || (row as any).account_id || '---';
+                    const accountName = row.nome_conta && row.nome_conta.trim() !== '' 
+                      ? row.nome_conta 
+                      : `Conta ${accId}`;
+
                     return (
-                    <TableRow key={row.meta_account_id} className="hover:bg-slate-50">
+                    <TableRow key={accId} className="hover:bg-slate-50">
                         <TableCell className="font-bold text-slate-800">
-                            <div className="line-clamp-1" title={row.nome_conta}>{row.nome_conta}</div>
-                            <div className="text-[10px] text-slate-400 font-normal font-mono">{row.meta_account_id}</div>
+                            <div className="line-clamp-1" title={accountName}>{accountName}</div>
+                            <div className="text-[10px] text-slate-400 font-normal font-mono">{accId}</div>
                         </TableCell>
                         <TableCell className="text-right">{fmtCurrency(row.investimento)}</TableCell>
                         <TableCell className="text-right">{row.compras}</TableCell>

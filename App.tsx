@@ -62,6 +62,17 @@ export default function App() {
      return filtered;
   }, [userProfile, officialFranchises]);
 
+  // Derived Strings for stable dependencies
+  const franchiseString = useMemo(() => 
+    availableFranchises.map(f => f.name).sort().join(','), 
+    [availableFranchises]
+  );
+  
+  const accountString = useMemo(() => 
+    (userProfile?.assigned_account_ids || []).sort().join(','), 
+    [userProfile?.assigned_account_ids]
+  );
+
   // Load Data
   useEffect(() => {
     if (!session || !userProfile) return; 
@@ -73,11 +84,10 @@ export default function App() {
         const end = dateRange?.end || new Date();
 
         // Para usuários multi-franqueados, passamos a lista de nomes/IDs permitidos
-        // O SupabaseService cuidará de filtrar as queries por esses valores
-        const franchiseNames = availableFranchises.map(f => f.name);
-        const accountIds = userProfile.assigned_account_ids || [];
+        const franchiseNames = franchiseString ? franchiseString.split(',') : [];
+        const accountIds = accountString ? accountString.split(',') : [];
 
-        console.log('[App] Loading data with filters:', { 
+        console.log('[App] Loading data with stable filters:', { 
             role: userProfile.role, 
             franchises: franchiseNames, 
             accounts: accountIds 
@@ -104,7 +114,7 @@ export default function App() {
     };
 
     loadData();
-  }, [session, userProfile, dateRange, availableFranchises]);
+  }, [session, userProfile?.id, dateRange?.start, dateRange?.end, franchiseString, accountString]);
 
   // Filters Reset
   useEffect(() => { setSelectedAccount(''); }, [selectedFranchise]);
