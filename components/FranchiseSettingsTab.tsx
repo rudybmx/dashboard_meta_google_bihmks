@@ -1,36 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   Trash2, 
-  Search, 
   Store,
   RefreshCw,
   AlertCircle 
 } from 'lucide-react';
 import * as supabaseService from '../services/supabaseService';
-import { Franchise } from '../types';
+import { useSettingsData } from '../context/SettingsDataContext';
 
 export const FranchiseSettingsTab: React.FC = () => {
-    const [franchises, setFranchises] = useState<Franchise[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { 
+        franchises, 
+        setFranchises, 
+        franchisesLoading: loading,
+        isDataLoaded,
+        refreshFranchises 
+    } = useSettingsData();
+    
     const [newName, setNewName] = useState('');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const data = await supabaseService.fetchFranchises();
-            setFranchises(data);
-        } catch (err) {
-            console.error("Failed to load franchises", err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,11 +48,11 @@ export const FranchiseSettingsTab: React.FC = () => {
         } catch (err) {
             console.error(err);
             alert('Erro ao excluir');
-            loadData(); // Revert
+            refreshFranchises(); // Revert by reloading
         }
     };
 
-    if (loading) {
+    if (loading && !isDataLoaded) {
         return (
             <div className="flex items-center justify-center h-64">
                 <Loader />

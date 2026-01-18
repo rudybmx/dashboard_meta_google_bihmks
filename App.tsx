@@ -31,7 +31,7 @@ export default function App() {
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
-  const [totalBalance, setTotalBalance] = useState<number>(0);
+  const [metaAccounts, setMetaAccounts] = useState<any[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
   // Filter States
@@ -94,12 +94,18 @@ export default function App() {
         const start = stableDates.startText ? new Date(stableDates.startText) : subDays(new Date(), 30);
         const end = stableDates.endText ? new Date(stableDates.endText) : new Date();
 
-        // Para usuários multi-franqueados, passamos a lista de nomes/IDs permitidos
-        const franchiseNames = franchiseString ? franchiseString.split(',') : [];
-        const accountIds = accountString ? accountString.split(',') : [];
+        // Use UI-selected filters if set, otherwise use profile defaults
+        const franchiseNames = selectedFranchise ? [selectedFranchise] : (franchiseString ? franchiseString.split(',') : []);
+        
+        // Strip 'act_' prefix from account IDs if present (database uses numeric format)
+        const normalizedAccountId = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
+        const accountIds = normalizedAccountId ? [normalizedAccountId] : (accountString ? accountString.split(',') : []);
 
-        console.log('[App] Loading data with stable filters:', { 
+        console.log('[App] Loading data with UI filters:', { 
             role: userProfile.role, 
+            selectedFranchise,
+            selectedAccount,
+            normalizedAccountId,
             franchises: franchiseNames, 
             accounts: accountIds,
             dates: { start, end }
@@ -116,20 +122,10 @@ export default function App() {
         setFormattedComparisonData(campaignResult.previous);
         setKpiRpcData(kpiResult);
         setSummaryData(summaryResult);
+        setMetaAccounts(allAccounts);
         setIsDemoMode(campaignResult.isMock);
         if (campaignResult.isMock) setConnectionError(campaignResult.error);
 
-        // Calculate Balance (Date Independent but respects filter)
-        const filteredBalance = allAccounts
-            .filter(acc => {
-                // We use accountIds if provided to filter balance too, or franchise names
-                const matchFranchise = franchiseNames.length === 0 || franchiseNames.includes(acc.franchise_id);
-                const matchAccount = accountIds.length === 0 || accountIds.includes(acc.account_id);
-                return matchFranchise && matchAccount;
-            })
-            .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
-        
-        setTotalBalance(filteredBalance);
         setIsDataLoaded(true);
 
       } catch (err) {
@@ -140,8 +136,21 @@ export default function App() {
     };
 
     loadData();
-    // VITAL: Usar strings estáveis como dependência, nunca objetos/arrays diretamente
-  }, [session, userProfile?.id, stableDates.startText, stableDates.endText, franchiseString, accountString]);
+    // VITAL: Usar strings estáveis como dependência
+  }, [session, userProfile?.id, stableDates.startText, stableDates.endText, selectedFranchise, selectedAccount]);
+
+  // Dynamic Balance Calculation (Reactive to UI Filters)
+  const currentFilteredBalance = useMemo(() => {
+    if (!metaAccounts.length) return 0;
+    
+    return metaAccounts
+      .filter(acc => {
+        const matchFranchise = !selectedFranchise || acc.franchise_id === selectedFranchise;
+        const matchAccount = !selectedAccount || acc.account_id === selectedAccount || acc.account_name === selectedAccount;
+        return matchFranchise && matchAccount;
+      })
+      .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+  }, [metaAccounts, selectedFranchise, selectedAccount]);
 
   // Separate Effect for Franchises (Only once or when profile changes)
   useEffect(() => {
@@ -163,7 +172,14 @@ export default function App() {
   const filteredData = useMemo(() => {
     return data.filter(d => {
       const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
-      const matchAccount = !selectedAccount || d.account_name === selectedAccount;
+      
+      // Handle both 'act_' prefixed and numeric account IDs
+      const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
+      const matchAccount = !selectedAccount || 
+        d.account_id === selectedAccount || 
+        d.account_id === normalizedSelected ||
+        d.account_name === selectedAccount;
+      
       return matchFranchise && matchAccount;
     });
   }, [selectedFranchise, selectedAccount, data]);
@@ -171,7 +187,14 @@ export default function App() {
   const comparisonData = useMemo(() => {
      return formattedComparisonData.filter(d => {
        const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
-       const matchAccount = !selectedAccount || d.account_name === selectedAccount;
+       
+       // Handle both 'act_' prefixed and numeric account IDs
+       const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
+       const matchAccount = !selectedAccount || 
+         d.account_id === selectedAccount || 
+         d.account_id === normalizedSelected ||
+         d.account_name === selectedAccount;
+       
        return matchFranchise && matchAccount;
     });
   }, [selectedFranchise, selectedAccount, formattedComparisonData]);
@@ -229,6 +252,7 @@ export default function App() {
                 setDateRange={setDateRange}
                 isLocked={availableFranchises.length === 1 && userProfile?.role !== 'admin'}
                 availableFranchises={availableFranchises}
+                metaAccounts={metaAccounts}
                 userRole={userProfile?.role}
               />
            )}
@@ -257,12 +281,20 @@ export default function App() {
                  kpiData={kpiRpcData} 
                  selectedFranchisee={selectedFranchise} 
                  selectedClient={selectedAccount} 
-                 externalTotalBalance={totalBalance}
+                 externalTotalBalance={currentFilteredBalance}
               />
             )}
             {activeView === 'executive' && <DashboardOverview data={filteredData} />}
             {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
-            {activeView === 'ads' && <AdsTableView data={filteredData} />}
+            {activeView === 'ads' && (
+              <AdsTableView 
+                data={filteredData} 
+                onCampaignClick={(campaignName) => {
+                  setActiveView('campaigns');
+                  // Note: CampaignsView will need to be updated to accept and use this filter
+                }} 
+              />
+            )}
             {activeView === 'creatives' && <CreativesView data={filteredData} />}
             {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
             {activeView === 'settings' && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : activeView === 'settings' && (

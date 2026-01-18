@@ -1,12 +1,12 @@
 import React from 'react';
-import { LayoutDashboard, PieChart, Users, Settings, LogOut, Palette, LineChart, LayoutGrid, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, PieChart, Users, Settings, LogOut, Palette, LayoutGrid, ClipboardList } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/src/auth/useAuth';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary';
-  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary') => void;
+  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary';
+  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary') => void;
   isDemoMode: boolean;
   userRole?: string;
   userName?: string;
@@ -45,7 +45,6 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode, user
       <nav className="flex-1 space-y-2">
         <NavItem icon={ClipboardList} label="Resumo Gerencial" view="summary" />
         <NavItem icon={LayoutDashboard} label="Visão Gerencial" view="dashboard" />
-        <NavItem icon={LineChart} label="Visão Executiva" view="executive" />
         <NavItem icon={PieChart} label="Campanhas" view="campaigns" />
         <NavItem icon={LayoutGrid} label="Anúncios (Tabela)" view="ads" />
         <NavItem icon={Palette} label="Criativos (Galeria)" view="creatives" />

@@ -109,9 +109,8 @@ export const fetchCampaignData = async (
     const prevEndStr = formatDateForDB(prevEnd);
 
     // If filters are provided from external (App.tsx), use them. 
-    // Otherwise, we calculate them once here for safety/compatibility.
-    let finalFranchises = franchiseFilter;
-    let finalAccounts = accountFilter;
+    let finalFranchises = franchiseFilter && franchiseFilter[0] !== '' ? franchiseFilter : null;
+    let finalAccounts = accountFilter && accountFilter[0] !== '' ? accountFilter : null;
 
     if (!finalFranchises && !finalAccounts) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -120,8 +119,8 @@ export const fetchCampaignData = async (
             if (profile) {
                 const isAdmin = profile.role === 'admin' || profile.role === 'executive';
                 if (!isAdmin) {
-                    finalFranchises = profile.assigned_franchise_ids || [];
-                    finalAccounts = profile.assigned_account_ids || [];
+                    finalFranchises = finalFranchises || profile.assigned_franchise_ids || [];
+                    finalAccounts = finalAccounts || profile.assigned_account_ids || [];
                 }
             }
         }
@@ -225,8 +224,8 @@ export const fetchKPIComparison = async (
     try {
         const { start: prevStart, end: prevEnd } = getPreviousPeriod(startDate, endDate);
         
-        let finalFranchises = franchiseFilter;
-        let finalAccounts = accountFilter;
+        let finalFranchises = franchiseFilter && franchiseFilter[0] !== '' ? franchiseFilter : null;
+        let finalAccounts = accountFilter && accountFilter[0] !== '' ? accountFilter : null;
 
         // Auto-fetch if not provided
         if (!finalFranchises && !finalAccounts) {
@@ -236,8 +235,8 @@ export const fetchKPIComparison = async (
                 if (profile) {
                     const isAdmin = profile.role === 'admin' || profile.role === 'executive';
                     if (!isAdmin) {
-                        finalFranchises = profile.assigned_franchise_ids || [];
-                        finalAccounts = profile.assigned_account_ids || [];
+                        finalFranchises = finalFranchises || profile.assigned_franchise_ids || [];
+                        finalAccounts = finalAccounts || profile.assigned_account_ids || [];
                     }
                 }
             }
@@ -340,23 +339,24 @@ export const addAccountConfig = async (config: AccountConfigInsert) => {
     return data;
 };
 
-// Helper to safely parse localized currency strings (PT-BR or US) or numbers
 const safeFloat = (val: string | number | null | undefined): number => {
-    if (val === undefined || val === null) return 0;
-    if (typeof val === 'number') return val;
-    
-    // Clean string
-    let str = String(val).trim();
-    if (str.startsWith('R$')) str = str.replace('R$', '').trim();
-    
-    // Heuristic: If it has a comma, assume PT-BR (1.000,00)
-    // We only strip dots if a comma is present, protecting "1000.50" (US)
-    if (str.includes(',')) {
-       str = str.replace(/\./g, '').replace(',', '.');
-    } 
-    // Else, assume standard float (1000.00) or integer, so do NOT strip dots.
-    
-    return parseFloat(str) || 0;
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val; // If it's already a number, don't touch it!
+
+  let str = String(val).trim();
+  
+  // Remove currency symbol if present
+  if (str.startsWith('R$')) str = str.replace('R$', '').trim();
+
+  // Detection: If it looks like a standard float (e.g. "1500.50"), parse directly.
+  // We check if it has a dot and NO commas, or fits a standard number regex.
+  if (!str.includes(',') && !isNaN(Number(str))) {
+     return parseFloat(str);
+  }
+
+  // Fallback for PT-BR formatting (e.g. "1.500,50")
+  // Remove thousand separators (.) and replace decimal separator (,) with (.)
+  return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
 };
 
 // BM Settings (tb_meta_ads_contas)

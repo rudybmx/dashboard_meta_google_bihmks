@@ -113,9 +113,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
     };
 
     // 1. IF RPC DATA IS AVAILABLE -> USE IT (Fast & Accurate)
-    // ONLY if no specific UI filters (Franchise/Client) are active, 
-    // because kpiData is the global total comparison for the user scope.
-    if (kpiData && !selectedFranchisee && !selectedClient) {
+    if (kpiData) {
          // Calculate Derived Metrics
          const cpl = kpiData.current_leads > 0 ? kpiData.current_spend / kpiData.current_leads : 0;
          const prevCpl = kpiData.prev_leads > 0 ? kpiData.prev_spend / kpiData.prev_leads : 0;

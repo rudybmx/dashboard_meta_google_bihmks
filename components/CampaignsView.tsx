@@ -1,499 +1,545 @@
 import React, { useMemo, useState } from 'react';
 import { CampaignData } from '../types';
 import { 
-  ScatterChart, 
-  Scatter, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  ReferenceLine,
-  Label
-} from 'recharts';
-import { 
   Search, 
-  Target,
-  ChevronRight,
+  Download, 
   ChevronDown,
-  ArrowUpDown,
-  ImageIcon,
-  LayoutGrid,
-  Megaphone
+  ChevronRight,
+  Facebook,
+  Instagram,
+  Chrome,
+  ExternalLink,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button-1";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { SafeImage } from './ui/SafeImage';
 
 interface Props {
   data: CampaignData[];
 }
 
-// --- Types ---
-type SortDirection = 'asc' | 'desc';
-type SortKey = 'spend' | 'leads' | 'cpl' | 'ctr' | 'cpc' | 'reach' | 'impressions' | 'roas';
-
-interface TreeNode {
-  id: string;
-  name: string;
-  objective?: string; // New Field
-  level: 'campaign' | 'adset' | 'ad';
-  image?: string; // Only for ads
-  
-  // Metrics
+// Hierarchy types
+interface AdData {
+  ad_id: string;
+  ad_name: string;
+  ad_image_url: string;
+  ad_post_link: string;
   spend: number;
-  leads: number;
   impressions: number;
+  leads: number;
   clicks: number;
-  reach: number;
-  purchaseValue: number;
-  
-  // Computed
+  purchases: number;
   cpl: number;
-  ctr: number;
-  cpc: number;
-  roas: number;
-
-  children: TreeNode[];
 }
 
-// --- Helper Functions ---
+interface AdSetData {
+  adset_name: string;
+  spend: number;
+  impressions: number;
+  leads: number;
+  clicks: number;
+  purchases: number;
+  cpl: number;
+  ads: AdData[];
+}
 
-const createNode = (id: string, name: string, level: TreeNode['level'], image?: string): TreeNode => ({
-  id,
-  name,
-  level,
-  image,
-  spend: 0,
-  leads: 0,
-  impressions: 0,
-  clicks: 0,
-  reach: 0,
-  purchaseValue: 0,
-  cpl: 0,
-  ctr: 0,
-  cpc: 0,
-  roas: 0,
-  children: []
-});
+interface CampaignHierarchy {
+  campaign_name: string;
+  account_name: string;
+  objective: string;
+  platform: string;
+  spend: number;
+  impressions: number;
+  leads: number;
+  clicks: number;
+  purchases: number;
+  cpl: number;
+  adsets: AdSetData[];
+}
 
-const calculateCalculatedMetrics = (node: TreeNode) => {
-  node.cpl = node.leads > 0 ? node.spend / node.leads : 0;
-  node.ctr = node.impressions > 0 ? (node.clicks / node.impressions) * 100 : 0;
-  node.cpc = node.clicks > 0 ? node.spend / node.clicks : 0;
-  node.roas = node.spend > 0 ? node.purchaseValue / node.spend : 0;
-};
-
-const buildHierarchy = (data: CampaignData[]): TreeNode[] => {
-  const campaignMap = new Map<string, TreeNode>();
+// Build hierarchical data
+const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
+  const campaigns: Record<string, CampaignHierarchy> = {};
 
   data.forEach(row => {
-    // 1. Resolve Keys
-    const campName = row.campaign_name || 'Sem Campanha';
-    const campId = campName; // Using Name as ID for grouping consistency
+    const campaignKey = `${row.campaign_name}_${row.account_name}`;
+    const adsetKey = row.adset_name || 'Sem Conjunto';
+    const adKey = row.ad_id?.toString() || row.ad_name || 'Sem Anúncio';
 
-    const adsetName = row.adset_name || 'Conjunto Geral';
-    const adsetId = `${campId}_${adsetName}`;
-
-    const adName = row.ad_name || 'Anúncio Geral';
-    const adId = row.ad_id || `${adsetId}_${adName}_${Math.random()}`;
-
-    // 2. Get or Create Campaign
-    if (!campaignMap.has(campId)) {
-        const newNode = createNode(campId, campName, 'campaign');
-        if (row.objective) newNode.objective = row.objective.toUpperCase(); // Capture Objective
-        campaignMap.set(campId, newNode);
-    }
-    const campNode = campaignMap.get(campId)!;
-
-    // 3. Get or Create AdSet (Manual Search in children to avoid secondary map if list is small, matches Map approach above for scale)
-    let adsetNode = campNode.children.find(c => c.id === adsetId);
-    if (!adsetNode) {
-        adsetNode = createNode(adsetId, adsetName, 'adset');
-        campNode.children.push(adsetNode);
+    // Initialize campaign
+    if (!campaigns[campaignKey]) {
+      campaigns[campaignKey] = {
+        campaign_name: row.campaign_name || 'Campanha Desconhecida',
+        account_name: row.account_name || '-',
+        objective: row.objective || 'Sem Objetivo',
+        platform: row.target_plataformas || 'facebook',
+        spend: 0,
+        impressions: 0,
+        leads: 0,
+        clicks: 0,
+        purchases: 0,
+        cpl: 0,
+        adsets: []
+      };
     }
 
-    // 4. Create Ad Node (Always new leaf)
-    const adNode = createNode(adId, adName, 'ad', row.ad_image_url);
-    
-    // 5. Populate Metrics (Leaf Level)
-    adNode.spend = Number(row.valor_gasto || 0);
-    adNode.leads = (Number(row.msgs_iniciadas || 0) + Number(row.compras || 0));
-    adNode.impressions = Number(row.impressoes || 0);
-    adNode.clicks = Number(row.cliques_todos || 0);
-    adNode.reach = Number(row.alcance || 0);
-    adNode.purchaseValue = Number(row.valor_compras || 0);
-    calculateCalculatedMetrics(adNode);
+    const campaign = campaigns[campaignKey];
 
-    adsetNode.children.push(adNode);
+    // Find or create adset
+    let adset = campaign.adsets.find(a => a.adset_name === adsetKey);
+    if (!adset) {
+      adset = {
+        adset_name: adsetKey,
+        spend: 0,
+        impressions: 0,
+        leads: 0,
+        clicks: 0,
+        purchases: 0,
+        cpl: 0,
+        ads: []
+      };
+      campaign.adsets.push(adset);
+    }
+
+    // Find or create ad
+    let ad = adset.ads.find(a => a.ad_id === adKey);
+    if (!ad) {
+      ad = {
+        ad_id: adKey,
+        ad_name: row.ad_name || 'Anúncio Desconhecido',
+        ad_image_url: row.ad_image_url || '',
+        ad_post_link: row.ad_post_link || '',
+        spend: 0,
+        impressions: 0,
+        leads: 0,
+        clicks: 0,
+        purchases: 0,
+        cpl: 0
+      };
+      adset.ads.push(ad);
+    }
+
+    // Aggregate values
+    const spend = Number(row.valor_gasto || 0);
+    const impressions = Number(row.impressoes || 0);
+    const leads = Number(row.msgs_iniciadas || 0);
+    const clicks = Number(row.cliques_todos || 0);
+    const purchases = Number(row.compras || 0);
+
+    campaign.spend += spend;
+    campaign.impressions += impressions;
+    campaign.leads += leads;
+    campaign.clicks += clicks;
+    campaign.purchases += purchases;
+
+    adset.spend += spend;
+    adset.impressions += impressions;
+    adset.leads += leads;
+    adset.clicks += clicks;
+    adset.purchases += purchases;
+
+    ad.spend += spend;
+    ad.impressions += impressions;
+    ad.leads += leads;
+    ad.clicks += clicks;
+    ad.purchases += purchases;
   });
 
-  // 6. Rollup Aggregation (Bottom-Up)
-  campaignMap.forEach(campNode => {
-      campNode.children.forEach(adsetNode => {
-          // Sum AdSet children (Ads)
-          adsetNode.children.forEach(ad => {
-              adsetNode.spend += ad.spend;
-              adsetNode.leads += ad.leads;
-              adsetNode.impressions += ad.impressions;
-              adsetNode.clicks += ad.clicks;
-              adsetNode.reach += ad.reach; // Reach is usually non-additive, but strictly summing for hierarchy approx.
-              adsetNode.purchaseValue += ad.purchaseValue;
-          });
-          calculateCalculatedMetrics(adsetNode);
-
-          // Sum Campaign children (AdSets)
-          campNode.spend += adsetNode.spend;
-          campNode.leads += adsetNode.leads;
-          campNode.impressions += adsetNode.impressions;
-          campNode.clicks += adsetNode.clicks;
-          campNode.reach += adsetNode.reach; // Again, approx.
-          campNode.purchaseValue += adsetNode.purchaseValue;
+  // Calculate CPL for all levels
+  Object.values(campaigns).forEach(campaign => {
+    campaign.cpl = campaign.leads > 0 ? campaign.spend / campaign.leads : 0;
+    campaign.adsets.forEach(adset => {
+      adset.cpl = adset.leads > 0 ? adset.spend / adset.leads : 0;
+      adset.ads.forEach(ad => {
+        ad.cpl = ad.leads > 0 ? ad.spend / ad.leads : 0;
       });
-      calculateCalculatedMetrics(campNode);
+    });
   });
 
-  return Array.from(campaignMap.values());
+  return Object.values(campaigns).sort((a, b) => b.spend - a.spend);
+};
+
+// CSV Export
+const downloadCSV = (data: CampaignHierarchy[]) => {
+  const headers = ["Campanha", "Conjunto", "Anúncio", "Investimento", "Leads", "CPL", "Impressões"];
+  const rows: string[][] = [];
+
+  data.forEach(campaign => {
+    campaign.adsets.forEach(adset => {
+      adset.ads.forEach(ad => {
+        rows.push([
+          `"${campaign.campaign_name.replace(/"/g, '""')}"`,
+          `"${adset.adset_name.replace(/"/g, '""')}"`,
+          `"${ad.ad_name.replace(/"/g, '""')}"`,
+          ad.spend.toFixed(2),
+          ad.leads.toString(),
+          ad.cpl.toFixed(2),
+          ad.impressions.toString()
+        ]);
+      });
+    });
+  });
+
+  const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `campaigns_export_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// Formatters
+const fmtCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+const fmtNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
+
+// Platform helpers
+const getPlatformIcon = (platform: string) => {
+  if (platform === 'facebook') return <Facebook size={14} className="text-blue-600" />;
+  if (platform === 'instagram') return <Instagram size={14} className="text-pink-600" />;
+  return <Chrome size={14} className="text-green-600" />;
+};
+
+const getPlatformStyle = (platform: string) => {
+  if (platform === 'facebook') return 'bg-blue-50 text-blue-700 border-blue-100';
+  if (platform === 'instagram') return 'bg-pink-50 text-pink-700 border-pink-100';
+  return 'bg-green-50 text-green-700 border-green-100';
+};
+
+const getPlatformName = (platform: string) => {
+  if (platform === 'facebook') return 'Meta (FB)';
+  if (platform === 'instagram') return 'Instagram';
+  if (platform === 'audience_network') return 'Audience Net';
+  return 'Google';
 };
 
 export const CampaignsView: React.FC<Props> = ({ data }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ 
-      key: 'spend', 
-      direction: 'desc' 
-  });
-  const [objectiveFilter, setObjectiveFilter] = useState<string>('ALL'); // New Filter State
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [objectiveFilter, setObjectiveFilter] = useState('');
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  const [expandedAdsets, setExpandedAdsets] = useState<Set<string>>(new Set());
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-  // Toggle Row Expansion
-  const toggleRow = (id: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(id)) {
-        newExpanded.delete(id);
-    } else {
-        newExpanded.add(id);
-    }
-    setExpandedRows(newExpanded);
-  };
+  // Process Data
+  const hierarchyData = useMemo(() => buildHierarchy(data), [data]);
 
-  // --- Process Data ---
-  const rootNodes = useMemo(() => buildHierarchy(data), [data]);
-
+  // Extract unique objectives
   const uniqueObjectives = useMemo(() => {
-      return Array.from(new Set(rootNodes.map(n => n.objective).filter(Boolean))).sort();
-  }, [rootNodes]);
+    const objectives = new Set<string>();
+    hierarchyData.forEach(c => objectives.add(c.objective));
+    return Array.from(objectives).sort();
+  }, [hierarchyData]);
 
-  const hierarchy = useMemo(() => {
-    let filtered = rootNodes;
+  // Filter data
+  const filteredData = useMemo(() => {
+    let result = hierarchyData;
     
-    // 1. Filter by Objective
-    if (objectiveFilter !== 'ALL') {
-        filtered = filtered.filter(n => n.objective === objectiveFilter);
+    // Filter by objective
+    if (objectiveFilter) {
+      result = result.filter(c => c.objective === objectiveFilter);
     }
-
-    // 2. Filter by Search
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(n => 
-            n.name.toLowerCase().includes(lowerTerm) || 
-            n.children.some(c => c.name.toLowerCase().includes(lowerTerm))
-        );
+    
+    // Filter by search text
+    if (globalFilter.trim()) {
+      const search = globalFilter.toLowerCase();
+      result = result.filter(c => 
+        c.campaign_name.toLowerCase().includes(search) ||
+        c.account_name.toLowerCase().includes(search) ||
+        c.adsets.some(a => 
+          a.adset_name.toLowerCase().includes(search) ||
+          a.ads.some(ad => ad.ad_name.toLowerCase().includes(search))
+        )
+      );
     }
+    
+    return result;
+  }, [hierarchyData, globalFilter, objectiveFilter]);
 
-    // 3. Sort (Top Level)
-    filtered.sort((a, b) => { // NOTE: sort mutates, but we are sorting a filtered array (shallow copy from filter usually, or we should spread)
-        // filter returns new array, so sort is fine.
-        const valA = a[sortConfig.key];
-        const valB = b[sortConfig.key];
-        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
-    });
-
-    return filtered;
-  }, [rootNodes, searchTerm, sortConfig, objectiveFilter]);
-
-  // Handle Sort Request
-  const handleSort = (key: SortKey) => {
-      setSortConfig(current => ({
-          key,
-          direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
-      }));
+  // Toggle functions
+  const toggleCampaign = (key: string) => {
+    const next = new Set(expandedCampaigns);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExpandedCampaigns(next);
   };
 
-  // Formatters
-  const fmtCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  const fmtNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
-
-  // Recursive Row Renderer
-  const renderRow = (node: TreeNode) => {
-    const isExpanded = expandedRows.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
-    
-    // Styling based on level
-    let bgClass = '';
-    let plClass = 'pl-4';
-    let icon = null;
-
-    if (node.level === 'campaign') {
-        bgClass = 'bg-white font-semibold border-b border-gray-100';
-        plClass = 'pl-4';
-        icon = <Megaphone size={16} className="text-indigo-600 mr-2" />;
-    } else if (node.level === 'adset') {
-        bgClass = 'bg-slate-50 border-b border-slate-100 text-sm';
-        plClass = 'pl-12';
-        icon = <LayoutGrid size={14} className="text-slate-500 mr-2" />;
-    } else {
-        bgClass = 'bg-white border-b border-slate-50 text-xs text-slate-600 hover:bg-yellow-50';
-        plClass = 'pl-20';
-        icon = node.image ? (
-            <div className="relative h-8 w-8 mr-3 rounded overflow-hidden border border-slate-200 group-hover:scale-150 transition-transform origin-left z-10 bg-slate-100">
-                <img src={node.image} alt="Creative" className="object-cover w-full h-full" />
-            </div>
-        ) : <ImageIcon size={14} className="text-slate-400 mr-2" />;
-    }
-
-    // Avg calculation for color coding
-    const totalCpl = hierarchy.reduce((acc, n) => acc + (n.leads > 0 ? n.spend/n.leads : 0)*n.spend, 0) / hierarchy.reduce((acc, n) => acc + n.spend, 0) || 0; // Weighted Avg approx or just use global avg passed in props if available. 
-    // Simplified: Just use node own CPL vs 50 (arbitrary) or heuristic? 
-    // Let's stick to clean standard styling first.
-
-    return (
-        <React.Fragment key={node.id}>
-            <TableRow className={cn("group transition-colors", bgClass)}>
-                <TableCell className="py-2.5">
-                    <div className={cn("flex items-center", plClass)}>
-                        {/* Expand Toggle */}
-                        {hasChildren ? (
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); toggleRow(node.id); }}
-                                className="mr-2 p-1 hover:bg-black/5 rounded transition-colors"
-                            >
-                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                        ) : (
-                            // Spacer for alignment if leaf
-                           <span className="w-6 inline-block" /> 
-                        )}
-                        
-                        {/* Icon/Image + Name */}
-                        {icon}
-                        <span className="truncate max-w-[300px]" title={node.name}>
-                            {node.name}
-                        </span>
-                    </div>
-                </TableCell>
-                
-                {/* Metrics */}
-                <TableCell className="text-right py-2.5 text-indigo-700 font-medium tracking-tight">
-                    {fmtCurrency(node.spend)}
-                </TableCell>
-                
-                <TableCell className="text-right py-2.5 font-bold text-slate-800 bg-black/5">
-                    {node.leads}
-                </TableCell>
-                
-                <TableCell className="text-right py-2.5">
-                     <Badge variant="outline" className={cn("font-mono font-medium", 
-                        node.cpl === 0 ? "text-slate-400 border-slate-200" :
-                        node.cpl < 40 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-amber-700 bg-amber-50 border-amber-200"
-                     )}>
-                        {fmtCurrency(node.cpl)}
-                     </Badge>
-                </TableCell>
-                
-                <TableCell className="text-right py-2.5 text-slate-600">
-                    {node.ctr.toFixed(2)}%
-                </TableCell>
-                
-                <TableCell className="text-right py-2.5 text-slate-600">
-                    {fmtCurrency(node.cpc)}
-                </TableCell>
-                
-                <TableCell className="text-right py-2.5 text-slate-500">
-                    {fmtNumber(node.reach)}
-                </TableCell>
-            </TableRow>
-            
-            {/* Recursively render children if expanded */}
-            {isExpanded && node.children.map(child => renderRow(child))}
-        </React.Fragment>
-    );
+  const toggleAdset = (key: string) => {
+    const next = new Set(expandedAdsets);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExpandedAdsets(next);
   };
 
-  // Sort Header Helper
-  const SortHead = ({ label, sortKey, alignRight = true }: { label: string, sortKey: SortKey, alignRight?: boolean }) => (
-      <TableHead 
-        className={cn(
-            "cursor-pointer hover:bg-slate-100 transition-colors select-none group", 
-            alignRight ? "text-right" : "text-left"
-        )}
-        onClick={() => handleSort(sortKey)}
-      >
-          <div className={cn("flex items-center gap-1", alignRight && "justify-end")}>
-              {label}
-              <ArrowUpDown size={12} className={cn("text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity", sortConfig.key === sortKey && "text-indigo-500 opacity-100")} />
-          </div>
-      </TableHead>
-  );
-
-  // --- Scatter Chart Data Preparation ---
-  // Flatten for scatter chart (using only Campaigns)
-  const scatterData = useMemo(() => hierarchy.map(n => ({
-      name: n.name,
-      spend: n.spend,
-      cpl: n.cpl,
-      leads: n.leads
-  })), [hierarchy]);
-   // Compute avg for RefLine
-   const avgCpl = useMemo(() => {
-    const totalSpend = hierarchy.reduce((acc, c) => acc + c.spend, 0);
-    const totalLeads = hierarchy.reduce((acc, c) => acc + c.leads, 0);
-    return totalLeads > 0 ? totalSpend / totalLeads : 0;
-  }, [hierarchy]);
-
+  // Totals
+  const totals = useMemo(() => {
+    return filteredData.reduce((acc, c) => ({
+      spend: acc.spend + c.spend,
+      leads: acc.leads + c.leads,
+      impressions: acc.impressions + c.impressions,
+      clicks: acc.clicks + c.clicks
+    }), { spend: 0, leads: 0, impressions: 0, clicks: 0 });
+  }, [filteredData]);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4 py-1">
-            Mesa de Performance
-        </h2>
-        <p className="text-slate-500 pl-5">Análise detalhada de eficiência e volume por hierarquia.</p>
-      </div>
-
-      {/* SECTION A: SCATTER CHART (Kept as requested or implicitly useful) */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-700">
-            <Target className="h-5 w-5 text-indigo-600" />
-            Matriz de Eficiência (Investimento vs. CPL)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
-                <XAxis 
-                  type="number" 
-                  dataKey="spend" 
-                  name="Investimento" 
-                  unit="R$" 
-                  tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`}
-                  label={{ value: 'Investimento Total', position: 'bottom', offset: 0, fontSize: 12 }} 
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={false}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Campanhas</h2>
+           <p className="text-slate-500">Hierarquia: Campanha → Conjunto → Anúncio</p>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* Search Input */}
+            <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Buscar campanha..." 
+                    className="pl-8 h-10" 
+                    value={globalFilter}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
                 />
-                <YAxis 
-                  type="number" 
-                  dataKey="cpl" 
-                  name="CPL" 
-                  unit="R$" 
-                  tickFormatter={(val) => `${val}`}
-                  label={{ value: 'Custo por Lead (CPL)', angle: -90, position: 'insideLeft', fontSize: 12 }} 
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={false}
-                />
-                <Tooltip 
-                    cursor={{ strokeDasharray: '3 3' }}
-                    content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                            const d = payload[0].payload;
-                            return (
-                                <div className="bg-white p-3 border border-slate-100 rounded-lg shadow-xl text-xs">
-                                    <p className="font-bold mb-1 text-slate-800">{d.name}</p>
-                                    <div className="space-y-1">
-                                        <p className="text-indigo-600 font-medium">Invest.: {fmtCurrency(d.spend)}</p>
-                                        <p className="text-emerald-600 font-medium">CPL: {fmtCurrency(d.cpl)}</p>
-                                        <p className="text-slate-500">Leads: {d.leads}</p>
-                                    </div>
-                                </div>
-                            );
-                        }
-                        return null;
-                    }}
-                />
-                
-                {/* Reference Line: Avg CPL */}
-                <ReferenceLine y={avgCpl} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5}>
-                  <Label value={`CPL Médio: ${fmtCurrency(avgCpl)}`} position="insideTopRight" fill="#ef4444" fontSize={11}/>
-                </ReferenceLine>
-
-                <Scatter name="Campanhas" data={scatterData} fill="#6366f1" fillOpacity={0.7} />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTION B: HIERARCHICAL TABLE */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
-                <LayoutGrid size={20} className="text-slate-400"/> Detalhamento Tático
-            </h3>
-            <div className="relative flex items-center gap-3 w-full sm:w-auto">
-                 {/* Objective Filter */}
-                 <div className="w-48">
-                    <Select value={objectiveFilter} onValueChange={setObjectiveFilter}>
-                        <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Objetivo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ALL">Todos Objetivos</SelectItem>
-                            {uniqueObjectives.map(obj => (
-                                <SelectItem key={obj} value={obj!}>{obj}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                 </div>
-
-                <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input 
-                        placeholder="Filtrar..." 
-                        className="pl-9 bg-white border-slate-200 focus:border-indigo-500 shadow-sm h-9" 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
             </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <Table>
-                <TableHeader className="bg-slate-50/50">
-                    <TableRow className="border-b border-slate-100">
-                        <TableHead className="w-[400px] text-slate-500 font-medium">Estrutura (Campanha {'>'} Conjunto {'>'} Anúncio)</TableHead>
-                        <SortHead label="Investimento" sortKey="spend" />
-                        <SortHead label="Leads" sortKey="leads" />
-                        <SortHead label="CPL" sortKey="cpl" />
-                        <SortHead label="CTR" sortKey="ctr" />
-                        <SortHead label="CPC" sortKey="cpc" />
-                        <SortHead label="Alcance" sortKey="reach" />
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {hierarchy.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={7} className="h-32 text-center text-slate-400">
-                                <div className="flex flex-col items-center gap-2">
-                                    <Search size={24} className="opacity-20" />
-                                    <span>Nenhum dado encontrado para o filtro atual.</span>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        hierarchy.map(node => renderRow(node))
-                    )}
-                </TableBody>
-            </Table>
+            {/* Objective Filter */}
+            <select
+              value={objectiveFilter}
+              onChange={(e) => setObjectiveFilter(e.target.value)}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">Todos os Objetivos</option>
+              {uniqueObjectives.map(obj => (
+                <option key={obj} value={obj}>{obj}</option>
+              ))}
+            </select>
+            <Button 
+                variant="styled" 
+                type="secondary" 
+                className="h-10 px-4 gap-2"
+                onClick={() => downloadCSV(filteredData)}
+            >
+                <div><Download size={16} /></div> <span>Exportar</span>
+            </Button>
         </div>
       </div>
+
+      {/* Table Container */}
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+        <div className="max-h-[calc(100vh-280px)] overflow-auto">
+          <table className="w-full border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[350px]">
+                  Campanha / Conjunto / Anúncio
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[150px]">
+                  Objetivo
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[130px]">
+                  Plataforma
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[120px]">
+                  Investimento
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
+                  Leads
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                  CPL
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[100px]">
+                  Impressões
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="h-32 text-center text-muted-foreground">
+                    Nenhuma campanha encontrada.
+                  </td>
+                </tr>
+              ) : (
+                filteredData.map((campaign, cidx) => {
+                  const campaignKey = `${campaign.campaign_name}_${campaign.account_name}`;
+                  const isCampaignExpanded = expandedCampaigns.has(campaignKey);
+
+                  return (
+                    <React.Fragment key={campaignKey}>
+                      {/* Campaign Row */}
+                      <tr 
+                        className={cn(
+                          "hover:bg-slate-50/80 transition-colors border-b border-slate-100 cursor-pointer",
+                          cidx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                        )}
+                        onClick={() => toggleCampaign(campaignKey)}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400">
+                              {isCampaignExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-slate-900 line-clamp-1" title={campaign.campaign_name}>
+                                {campaign.campaign_name}
+                              </span>
+                              <span className="text-[10px] text-slate-400">{campaign.account_name} • {campaign.adsets.length} conjuntos</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded" title={campaign.objective}>
+                            {campaign.objective}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", getPlatformStyle(campaign.platform))}>
+                            {getPlatformIcon(campaign.platform)}
+                            {getPlatformName(campaign.platform)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-700">{fmtCurrency(campaign.spend)}</td>
+                        <td className="py-3 px-4 text-right font-bold text-blue-600">{campaign.leads}</td>
+                        <td className="py-3 px-4 text-right text-slate-600">{fmtCurrency(campaign.cpl)}</td>
+                        <td className="py-3 px-4 text-right text-slate-500">{fmtNumber(campaign.impressions)}</td>
+                      </tr>
+
+                      {/* AdSets (Level 2) */}
+                      {isCampaignExpanded && campaign.adsets.map((adset, aidx) => {
+                        const adsetKey = `${campaignKey}_${adset.adset_name}`;
+                        const isAdsetExpanded = expandedAdsets.has(adsetKey);
+
+                        return (
+                          <React.Fragment key={adsetKey}>
+                            {/* AdSet Row */}
+                            <tr 
+                              className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors border-b border-slate-100 cursor-pointer"
+                              onClick={(e) => { e.stopPropagation(); toggleAdset(adsetKey); }}
+                            >
+                              <td className="py-2 px-4 pl-10">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-blue-400">
+                                    {isAdsetExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  </span>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-medium text-slate-700 text-sm line-clamp-1" title={adset.adset_name}>
+                                      {adset.adset_name}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">{adset.ads.length} anúncios</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2 px-4"></td>
+                              <td className="py-2 px-4"></td>
+                              <td className="py-2 px-4 text-right font-medium text-slate-600 text-sm">{fmtCurrency(adset.spend)}</td>
+                              <td className="py-2 px-4 text-right font-medium text-blue-500 text-sm">{adset.leads}</td>
+                              <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(adset.cpl)}</td>
+                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtNumber(adset.impressions)}</td>
+                            </tr>
+
+                            {/* Ads (Level 3) */}
+                            {isAdsetExpanded && adset.ads.map((ad, adIdx) => (
+                              <tr 
+                                key={ad.ad_id}
+                                className="bg-emerald-50/30 hover:bg-emerald-50/50 transition-colors border-b border-slate-100"
+                              >
+                                <td className="py-2 px-4 pl-16">
+                                  <div className="flex items-center gap-3">
+                                    {/* Thumbnail */}
+                                    {ad.ad_image_url ? (
+                                      <div 
+                                        className="w-10 h-10 rounded-md overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all flex-shrink-0"
+                                        onClick={(e) => { e.stopPropagation(); setLightboxImage(ad.ad_image_url); }}
+                                      >
+                                        <SafeImage 
+                                          src={ad.ad_image_url} 
+                                          alt={ad.ad_name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="w-10 h-10 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                        <ImageIcon size={16} className="text-slate-400" />
+                                      </div>
+                                    )}
+                                    {/* Ad Name */}
+                                    <span className="text-slate-600 text-sm line-clamp-1 flex-1" title={ad.ad_name}>
+                                      {ad.ad_name}
+                                    </span>
+                                    {/* External Link */}
+                                    {ad.ad_post_link && (
+                                      <a 
+                                        href={ad.ad_post_link} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors"
+                                        title="Ver anúncio"
+                                      >
+                                        <ExternalLink size={14} />
+                                      </a>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-4"></td>
+                                <td className="py-2 px-4"></td>
+                                <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(ad.spend)}</td>
+                                <td className="py-2 px-4 text-right text-blue-400 text-sm">{ad.leads}</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(ad.cpl)}</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtNumber(ad.impressions)}</td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </tbody>
+            {/* Footer with Totals */}
+            <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 sticky bottom-0">
+              <tr>
+                <td className="py-3 px-4 text-slate-800">Total ({filteredData.length} campanhas)</td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 text-right">{fmtCurrency(totals.spend)}</td>
+                <td className="py-3 px-4 text-right text-blue-600">{totals.leads}</td>
+                <td className="py-3 px-4 text-right">{fmtCurrency(totals.leads > 0 ? totals.spend / totals.leads : 0)}</td>
+                <td className="py-3 px-4 text-right">{fmtNumber(totals.impressions)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <button 
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+              onClick={() => setLightboxImage(null)}
+            >
+              <X size={24} />
+            </button>
+            <img 
+              src={lightboxImage} 
+              alt="Creative" 
+              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

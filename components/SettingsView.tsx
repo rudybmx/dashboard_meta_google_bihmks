@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { BMSettingsTab } from './BMSettingsTab';
 import { FranchiseSettingsTab } from './FranchiseSettingsTab';
 import { UsersSettingsTab } from './UsersSettingsTab';
+import { SettingsDataProvider } from '../context/SettingsDataContext';
 import { LayoutList, Store, Shield } from 'lucide-react';
+
 export const SettingsView: React.FC<{ userRole?: string }> = ({ userRole }) => {
     // Legacy hook removed to fix duplicate auth state bug
     // const { canManageUsers } = useAuth();
@@ -20,61 +22,71 @@ export const SettingsView: React.FC<{ userRole?: string }> = ({ userRole }) => {
     }, [activeTab, canManageUsers]);
 
     return (
-        <div className="flex flex-col h-full">
-            
-            {/* Tabs Header */}
-            <div className="bg-white border-b border-slate-200 px-8 pt-6">
-                <div className="flex items-center gap-8">
-                    <button 
-                        onClick={() => setActiveTab('accounts')}
-                        className={`
-                            pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
-                            ${activeTab === 'accounts' 
-                                ? 'border-indigo-600 text-indigo-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
-                        `}
-                    >
-                        <LayoutList size={18} />
-                        Contas de Anúncio
-                    </button>
-                    
-                    <button 
-                        onClick={() => setActiveTab('franchises')}
-                        className={`
-                            pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
-                            ${activeTab === 'franchises' 
-                                ? 'border-indigo-600 text-indigo-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
-                        `}
-                    >
-                        <Store size={18} />
-                        Gerenciar Franqueados
-                    </button>
-
-                    {canManageUsers && (
+        <SettingsDataProvider>
+            <div className="flex flex-col h-full">
+                
+                {/* Tabs Header */}
+                <div className="bg-white border-b border-slate-200 px-8 pt-6">
+                    <div className="flex items-center gap-8">
                         <button 
-                            onClick={() => setActiveTab('users')}
+                            onClick={() => setActiveTab('accounts')}
                             className={`
                                 pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
-                                ${activeTab === 'users' 
+                                ${activeTab === 'accounts' 
                                     ? 'border-indigo-600 text-indigo-600' 
                                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
                             `}
                         >
-                            <Shield size={18} />
-                            Usuários e Acesso
+                            <LayoutList size={18} />
+                            Contas de Anúncio
                         </button>
+                        
+                        <button 
+                            onClick={() => setActiveTab('franchises')}
+                            className={`
+                                pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
+                                ${activeTab === 'franchises' 
+                                    ? 'border-indigo-600 text-indigo-600' 
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
+                            `}
+                        >
+                            <Store size={18} />
+                            Gerenciar Franqueados
+                        </button>
+
+                        {canManageUsers && (
+                            <button 
+                                onClick={() => setActiveTab('users')}
+                                className={`
+                                    pb-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-all
+                                    ${activeTab === 'users' 
+                                        ? 'border-indigo-600 text-indigo-600' 
+                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
+                                `}
+                            >
+                                <Shield size={18} />
+                                Usuários e Acesso
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Tab Content - Keep all tabs mounted to preserve cache */}
+                <div className="flex-1 bg-slate-50 overflow-auto p-8">
+                    <div style={{ display: activeTab === 'accounts' ? 'block' : 'none' }}>
+                        <BMSettingsTab />
+                    </div>
+                    <div style={{ display: activeTab === 'franchises' ? 'block' : 'none' }}>
+                        <FranchiseSettingsTab />
+                    </div>
+                    {canManageUsers && (
+                        <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
+                            <UsersSettingsTab />
+                        </div>
                     )}
                 </div>
+                
             </div>
-
-            {/* Tab Content */}
-            <div className="flex-1 bg-slate-50 overflow-auto p-8">
-                {activeTab === 'accounts' && <BMSettingsTab />}
-                {activeTab === 'franchises' && <FranchiseSettingsTab />}
-                {activeTab === 'users' && canManageUsers && <UsersSettingsTab />}
-            </div>
-            
-        </div>
+        </SettingsDataProvider>
     );
 };

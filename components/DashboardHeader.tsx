@@ -16,6 +16,7 @@ interface DashboardHeaderProps {
   setDateRange: (range: RangeValue | null) => void;
   isLocked?: boolean;
   availableFranchises: { id: string; name: string }[];
+  metaAccounts: any[];
   userRole?: string;
 }
 
@@ -30,30 +31,35 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setDateRange,
   isLocked = false,
   availableFranchises,
+  metaAccounts,
   userRole
 }) => {
   
   // 1. Prepare Franchise Options from available list
-  // If user is admin, we might want "All". If limited, we show only limited.
   const franchiseOptions = useMemo(() => {
      return availableFranchises.map(f => ({ value: f.name, label: f.name }));
   }, [availableFranchises]);
 
-  // 2. Extract Clients (Filtered by Franchisee)
-  // This logic stays the same: showing clients present in the CURRENT data
+  // 2. Extract Clients (Filtered by Franchisee only if selected)
   const clients = useMemo(() => {
-    let filtered = data;
+    let filtered = metaAccounts || [];
     if (selectedFranchisee) {
-      filtered = data.filter(item => item.franqueado === selectedFranchisee);
+      // Filter the metaAccounts list by selected franchise name/id
+      filtered = filtered.filter(acc => acc.franchise_id === selectedFranchisee);
     }
-    const unique = new Set(filtered.map(item => item.account_name).filter(Boolean));
-    return Array.from(unique).sort().map(c => ({ value: c, label: c }));
-  }, [data, selectedFranchisee]);
+    
+    // Sort and map to options format
+    return filtered
+      .map(acc => ({ 
+        value: acc.account_id, 
+        label: acc.display_name ? `${acc.display_name} (${acc.account_name})` : acc.account_name 
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [metaAccounts, selectedFranchisee]);
 
   const isClientRole = userRole === 'client';
   
   // Determine if we should show the "All" option
-  // Only show "All" if user has access to more than 1 franchise (or is admin)
   const showAllOption = franchiseOptions.length > 1;
 
   return (
@@ -95,7 +101,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             value={selectedClient}
             onChange={(e) => setSelectedClient(e.target.value)}
             options={[{value: '', label: 'Todas Contas'}, ...clients]}
-            disabled={!selectedFranchisee}
+            disabled={isLocked && clients.length <= 1} // Only disable if locked and single client
           />
         </div>
 

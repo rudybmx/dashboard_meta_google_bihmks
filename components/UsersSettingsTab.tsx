@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -16,15 +16,20 @@ import {
   Lock
 } from 'lucide-react';
 import * as userService from '../services/userService';
-import * as supabaseService from '../services/supabaseService';
-import { UserProfile, UserFormData, UserRole, Franchise, MetaAdAccount } from '../types';
+import { UserProfile, UserFormData, UserRole } from '../types';
+import { useSettingsData } from '../context/SettingsDataContext';
 
 export const UsersSettingsTab: React.FC = () => {
-    // Data States
-    const [users, setUsers] = useState<UserProfile[]>([]);
-    const [franchises, setFranchises] = useState<Franchise[]>([]);
-    const [accounts, setAccounts] = useState<MetaAdAccount[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Data from Context
+    const { 
+        users, 
+        setUsers,
+        franchises, 
+        accounts,
+        usersLoading: loading,
+        isDataLoaded,
+        refreshUsers
+    } = useSettingsData();
 
     // Filter/UI States
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,28 +51,6 @@ export const UsersSettingsTab: React.FC = () => {
     };
     const [formData, setFormData] = useState<UserFormData>(initialFormState);
     const [isEditing, setIsEditing] = useState(false);
-
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [usersData, franchisesData, accountsData] = await Promise.all([
-                userService.fetchUsers(),
-                supabaseService.fetchFranchises(),
-                supabaseService.fetchMetaAccounts()
-            ]);
-            setUsers(usersData);
-            setFranchises(franchisesData);
-            setAccounts(accountsData);
-        } catch (err) {
-            console.error("Erro ao carregar dados", err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleOpenModal = (user?: UserProfile) => {
         if (user) {
@@ -132,6 +115,7 @@ export const UsersSettingsTab: React.FC = () => {
             setUsers(prev => prev.filter(u => u.id !== id));
         } catch (err) {
             alert('Erro ao excluir usuário');
+            refreshUsers(); // Reload on error
         }
     };
 
@@ -217,7 +201,7 @@ export const UsersSettingsTab: React.FC = () => {
     };
 
 
-    if (loading) {
+    if (loading && !isDataLoaded) {
         return <div className="flex h-64 items-center justify-center text-indigo-600"><Loader2 className="animate-spin" /></div>;
     }
 
