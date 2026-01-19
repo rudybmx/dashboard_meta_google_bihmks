@@ -138,8 +138,8 @@ export const SummaryView: React.FC<Props> = ({
       return summaryData.filter(row => {
           // UI Filter: Franchise
           if (selectedFranchisee && row.franquia !== selectedFranchisee) return false;
-          // UI Filter: Account Name matches
-          if (selectedClient && (row.nome_conta !== selectedClient)) return false; 
+          // UI Filter: Account (compare by account_id, not nome_conta)
+          if (selectedClient && row.meta_account_id !== selectedClient) return false; 
           return true;
       });
   }, [summaryData, selectedFranchisee, selectedClient]);
