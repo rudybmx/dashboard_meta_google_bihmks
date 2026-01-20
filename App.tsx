@@ -27,7 +27,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary'>('summary');
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
@@ -38,8 +38,8 @@ export default function App() {
   const [selectedFranchise, setSelectedFranchise] = useState<string>('');
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [dateRange, setDateRange] = useState<RangeValue | null>({
-      start: subDays(new Date(), 30),
-      end: new Date()
+      start: subDays(new Date(), 1),
+      end: subDays(new Date(), 1)
   });
 
   // Estabilizar datas para evitar triggers de useEffect desnecessários
@@ -87,6 +87,16 @@ export default function App() {
   // Load Data
   useEffect(() => {
     if (!session || !userProfile) return; 
+    
+    // For non-admin users, wait for franchises to load before fetching data
+    const isAdmin = userProfile.role === 'admin' || userProfile.role === 'executive';
+    const isClient = userProfile.role === 'client';
+    
+    // If user has restricted access by franchise, wait for franchises to be calculated
+    if (!isAdmin && !isClient && !franchiseString) {
+      console.log('[App] Waiting for franchise restrictions to load...');
+      return;
+    }
 
     const loadData = async () => {
       setLoading(true);
@@ -136,21 +146,39 @@ export default function App() {
     };
 
     loadData();
-    // VITAL: Usar strings estáveis como dependência
-  }, [session, userProfile?.id, stableDates.startText, stableDates.endText, selectedFranchise, selectedAccount]);
+    // VITAL: Include franchiseString to reload when franchise restrictions are available
+  }, [session, userProfile?.id, userProfile?.role, stableDates.startText, stableDates.endText, selectedFranchise, selectedAccount, franchiseString, accountString]);
 
-  // Dynamic Balance Calculation (Reactive to UI Filters)
+  // Dynamic Balance Calculation (Reactive to UI Filters + RBAC)
   const currentFilteredBalance = useMemo(() => {
     if (!metaAccounts.length) return 0;
     
+    // Use selectedFranchise if set, otherwise use user's assigned franchises
+    const effectiveFranchiseFilter = selectedFranchise || 
+      (availableFranchises.length === 1 ? availableFranchises[0].name : '');
+    
+    // For RBAC: get all allowed franchise names if no specific filter
+    const allowedFranchiseNames = availableFranchises.map(f => f.name);
+    
     return metaAccounts
       .filter(acc => {
-        const matchFranchise = !selectedFranchise || acc.franchise_id === selectedFranchise;
+        // If a specific franchise is selected, use that filter
+        if (effectiveFranchiseFilter) {
+          return acc.franchise_id === effectiveFranchiseFilter;
+        }
+        // Otherwise, filter by all allowed franchises (for RBAC)
+        if (allowedFranchiseNames.length > 0) {
+          return allowedFranchiseNames.includes(acc.franchise_id);
+        }
+        // Admins/executives see all
+        return true;
+      })
+      .filter(acc => {
         const matchAccount = !selectedAccount || acc.account_id === selectedAccount || acc.account_name === selectedAccount;
-        return matchFranchise && matchAccount;
+        return matchAccount;
       })
       .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
-  }, [metaAccounts, selectedFranchise, selectedAccount]);
+  }, [metaAccounts, selectedFranchise, selectedAccount, availableFranchises]);
 
   // Separate Effect for Franchises (Only once or when profile changes)
   useEffect(() => {

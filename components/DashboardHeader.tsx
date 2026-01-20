@@ -52,10 +52,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     }
     
     // Sort and map to options format
+    // Use display_name (Nome Ajustado) if filled, otherwise use account_name (Nome da Conta)
     return filtered
       .map(acc => ({ 
         value: acc.account_id, 
-        label: acc.display_name ? `${acc.display_name} (${acc.account_name})` : acc.account_name 
+        label: acc.display_name || acc.account_name
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [metaAccounts, effectiveFranchiseFilter]);
@@ -72,7 +73,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <div>
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h1>
         <p className="text-sm text-slate-500 flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
           Dados atualizados
         </p>
       </div>
@@ -119,11 +120,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             popoverAlignment="end" // Opens to the left
             value={dateRange}
             onChange={setDateRange}
-            presets={{
-              last7: { text: "Últimos 7 dias", start: subDays(new Date(), 7), end: new Date() },
-              last30: { text: "Últimos 30 dias", start: subDays(new Date(), 30), end: new Date() },
-              thisMonth: { text: "Este Mês", start: startOfMonth(new Date()), end: new Date() }
-            }}
           />
         </div>
       </div>

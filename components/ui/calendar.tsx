@@ -186,14 +186,15 @@ const formatDateRange = (start: Date, end: Date, timezone: string) => {
 
 // --- TRANSLATED PRESETS ---
 const typeRelativeTimes = [
-  { text: "Hoje", start: startOfDay(new Date()), end: endOfDay(new Date()) },
-  { text: "Ontem", start: startOfDay(subDays(new Date(), 1)), end: endOfDay(subDays(new Date(), 1)) },
-  { text: "Últimos 7 dias", start: startOfDay(subDays(new Date(), 7)), end: endOfDay(new Date()) },
-  { text: "Últimos 14 dias", start: startOfDay(subDays(new Date(), 14)), end: endOfDay(new Date()) },
-  { text: "Últimos 30 dias", start: startOfDay(subDays(new Date(), 30)), end: endOfDay(new Date()) },
-  { text: "Este Mês", start: startOfMonth(new Date()), end: endOfDay(new Date()) },
-  { text: "Mês Passado", start: startOfMonth(subMonths(new Date(), 1)), end: endOfMonth(subMonths(new Date(), 1)) }
+  { id: 'yesterday', text: "Ontem", start: startOfDay(subDays(new Date(), 1)), end: endOfDay(subDays(new Date(), 1)) },
+  { id: 'thisWeek', text: "Esta semana", start: startOfWeek(new Date(), { weekStartsOn: 1 }), end: endOfDay(new Date()) },
+  { id: 'lastWeek', text: "Semana passada", start: startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }), end: endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }) },
+  { id: 'thisMonth', text: "Este mês", start: startOfMonth(new Date()), end: endOfDay(new Date()) },
+  { id: 'lastMonth', text: "Mês passado", start: startOfMonth(subMonths(new Date(), 1)), end: endOfMonth(subMonths(new Date(), 1)) },
+  { id: 'custom', text: "Período customizado", start: null, end: null }
 ];
+
+
 
 interface CalendarComboboxProps {
   stacked: boolean;
@@ -303,114 +304,265 @@ export const Calendar = ({
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
   
+  // Internal state for selection before applying
+  const [tempRange, setTempRange] = useState<RangeValue>({ start: value?.start || null, end: value?.end || null });
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+
   // Use Browser Timezone
   const timezones = useMemo(() => ([{ value: Intl.DateTimeFormat().resolvedOptions().timeZone, label: `Local` }]), []);
-  const [selectedTimezone, setSelectedTimezone] = useState(timezones[0].value);
+  const [selectedTimezone] = useState(timezones[0].value);
 
   // States for inputs (Start/End)
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [startDateStr, setStartDateStr] = useState<string>("");
+  const [endDateStr, setEndDateStr] = useState<string>("");
   
   const calendarRef = useRef<HTMLDivElement | null>(null);
-  useClickOutside(calendarRef, () => setIsOpen(false));
+  useClickOutside(calendarRef, () => {
+    if (isOpen) {
+      setIsOpen(false);
+      // Revert temp range to actual value on close without saving
+      setTempRange({ start: value?.start || null, end: value?.end || null });
+    }
+  });
 
   useEffect(() => {
-    // Format input display strings
-    setStartDate(value?.start ? formatInTimeZone(value.start, selectedTimezone, "dd/MM/yyyy", { locale: ptBR }) : "");
-    setEndDate(value?.end ? formatInTimeZone(value.end, selectedTimezone, "dd/MM/yyyy", { locale: ptBR }) : "");
-  }, [isOpen, value, selectedTimezone]);
+    // Format input display strings based on temp selection
+    setStartDateStr(tempRange.start ? format(tempRange.start, "dd/MM/yyyy") : "");
+    setEndDateStr(tempRange.end ? format(tempRange.end, "dd/MM/yyyy") : "");
+    
+    // Check if current tempRange matches any preset
+    const matchedPreset = typeRelativeTimes.find(p => 
+      p.start && p.end && tempRange.start && tempRange.end &&
+      isSameDay(p.start, tempRange.start) && isSameDay(p.end, tempRange.end)
+    );
+    setSelectedPresetId(matchedPreset?.id || (tempRange.start || tempRange.end ? 'custom' : null));
+  }, [tempRange]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTempRange({ start: value?.start || null, end: value?.end || null });
+    }
+  }, [isOpen, value]);
 
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
-  const daysArray = [];
-  let day = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }); // Monday start
-  while (day <= endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 })) {
-    daysArray.push(day);
-    day = addDays(day, 1);
-  }
+  const getDaysArray = (date: Date) => {
+    const days = [];
+    let day = startOfWeek(startOfMonth(date), { weekStartsOn: 1 });
+    const end = endOfWeek(endOfMonth(date), { weekStartsOn: 1 });
+    while (day <= end) {
+      days.push(day);
+      day = addDays(day, 1);
+    }
+    return days;
+  };
 
   const handleDateClick = (day: Date) => {
-    if (!value?.start || (value.start && value.end)) {
-      onChange({ start: startOfDay(day), end: null });
+    if (!tempRange.start || (tempRange.start && tempRange.end)) {
+      setTempRange({ start: startOfDay(day), end: null });
       setHoverDate(day);
       setIsSelecting(true);
     } else if (isSelecting) {
-      if (day > value.start) onChange({ ...value, end: endOfDay(day) });
-      else onChange({ start: startOfDay(day), end: endOfDay(value.start) });
+      if (day > tempRange.start) {
+        setTempRange({ ...tempRange, end: endOfDay(day) });
+      } else {
+        setTempRange({ start: startOfDay(day), end: endOfDay(tempRange.start) });
+      }
       setIsSelecting(false);
       setHoverDate(null);
-      setIsOpen(false);
     }
   };
 
-  const handleMouseEnter = (day: Date) => { if (value?.start && !value.end) setHoverDate(day); };
+  const handleMouseEnter = (day: Date) => { if (tempRange.start && !tempRange.end) setHoverDate(day); };
 
-  return (
-    <div className="relative font-sans">
-      <div className={clsx(presets && "flex", presets && stacked && "flex-col", compact && "w-[220px]")}>
-        <div className="flex justify-between items-center">
-          <div className="relative">
-            <Button
-              className={clsx("!justify-start focus:!border-transparent focus:!shadow-focus-input", compact ? "w-[180px] gap-1.5" : "w-[250px]")}
-              prefix={<CalendarIcon />}
-              type="secondary"
-              onClick={() => setIsOpen((p) => !p)}
-            >
-              <div className="truncate pr-4 capitalize">
-                {value?.start && value?.end ? formatDateRange(value.start, value.end, selectedTimezone) : "Selecionar Data"}
+  const applyFilter = () => {
+    onChange(tempRange);
+    setIsOpen(false);
+  };
+
+  const cancelFilter = () => {
+    setTempRange({ start: value?.start || null, end: value?.end || null });
+    setIsOpen(false);
+  };
+
+  const handlePresetClick = (preset: typeof typeRelativeTimes[0]) => {
+    if (preset.id === 'custom') return;
+    setTempRange({ start: preset.start, end: preset.end });
+    if (preset.start) setCurrentDate(preset.start);
+    setIsSelecting(false);
+  };
+
+  const renderMonth = (monthDate: Date) => {
+    const days = getDaysArray(monthDate);
+    return (
+      <div className="w-[250px]">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-sm text-gray-700 font-semibold capitalize text-center w-full">
+            {format(monthDate, "MMMM yyyy", { locale: ptBR })}
+          </h2>
+        </div>
+        <div className="grid grid-cols-7 text-center text-[11px] text-gray-400 font-bold mb-2">
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(d => <div key={d}>{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-y-1">
+          {days.map((day) => {
+            const isStart = tempRange.start && isSameDay(day, tempRange.start);
+            const isEnd = tempRange.end && isSameDay(day, tempRange.end);
+            const isInRange = tempRange.start && (
+              (tempRange.end && isWithinInterval(day, { start: tempRange.start, end: tempRange.end })) || 
+              (hoverDate && isWithinInterval(day, { 
+                start: tempRange.start < hoverDate ? tempRange.start : hoverDate, 
+                end: tempRange.start < hoverDate ? hoverDate : tempRange.start 
+              }))
+            );
+            const isCurrentMonth = isSameMonth(day, monthDate);
+
+            return (
+              <div 
+                key={day.toString()} 
+                className={clsx(
+                  "flex items-center justify-center text-sm relative h-8 w-8 cursor-pointer transition-all duration-200",
+                  !isCurrentMonth && "text-gray-300 opacity-50",
+                  isCurrentMonth && "text-gray-700 hover:bg-indigo-50",
+                  isInRange && !isStart && !isEnd && "bg-indigo-50 text-indigo-700",
+                  (isStart || isEnd) && "bg-indigo-600 text-white rounded-md z-10 shadow-sm font-medium",
+                  isStart && tempRange.end && "rounded-r-none",
+                  isEnd && tempRange.start && "rounded-l-none"
+                )} 
+                onMouseEnter={() => handleMouseEnter(day)} 
+                onClick={() => handleDateClick(day)}
+              >
+                {format(day, "d")}
               </div>
-            </Button>
-            {value?.start && value?.end && allowClear && (
-              <Button svgOnly variant="unstyled" className="absolute right-0 top-1/2 -translate-y-1/2 fill-gray-700 hover:fill-gray-1000" onClick={() => onChange(null)}>
-                <ClearIcon />
-              </Button>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
-      {isOpen && (
-        <Material 
-          ref={calendarRef} 
-          type="menu" 
-          className={twMerge(clsx(
-            "p-3 font-sans absolute top-12 z-50 bg-white border border-slate-200 shadow-xl rounded-xl",
-            horizontalLayout ? "w-[462px]" : "w-[300px]",
-            popoverAlignment === "start" && "left-0",
-            popoverAlignment === "center" && "left-1/2 -translate-x-1/2",
-            popoverAlignment === "end" && "right-0 left-auto"
-          ))}
+    );
+  };
+
+  return (
+    <div className="relative isolate">
+      <div className="flex items-center">
+        <Button
+          className={clsx(
+            "!justify-start h-11 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors",
+            compact ? "w-[180px] gap-1.5" : "w-[240px]"
+          )}
+          prefix={<CalendarIcon />}
+          type="secondary"
+          onClick={() => setIsOpen((p) => !p)}
         >
-          <div className={clsx(horizontalLayout && "flex gap-5")}>
-            <div className="w-full">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-sm text-gray-1000 font-medium capitalize">
-                  {format(currentDate, "MMMM yyyy", { locale: ptBR })}
-                </h2>
-                <div className="flex gap-0.5">
-                  <Button variant="unstyled" onClick={prevMonth}><ArrowLeftIcon /></Button>
-                  <Button variant="unstyled" onClick={nextMonth}><ArrowRightIcon /></Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 text-center text-xs text-gray-500 uppercase mb-2 font-medium">
-                <div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div><div>D</div>
-              </div>
-              <div className="grid grid-cols-7 items-center gap-y-1">
-                {daysArray.map((day) => {
-                  const isStart = value?.start && isSameDay(day, value.start);
-                  const isEnd = value?.end && isSameDay(day, value.end);
-                  const isInRange = value?.start && ((value.end && isWithinInterval(day, { start: value.start, end: value.end })) || (hoverDate && isWithinInterval(day, { start: value.start, end: hoverDate })));
-                  return (
-                    <div key={day.toString()} className={clsx("flex items-center justify-center text-sm rounded transition h-8 w-8 cursor-pointer", isSameMonth(day, currentDate) ? "text-gray-900" : "text-gray-300", isInRange && !isStart && !isEnd && "bg-blue-50 text-blue-900 rounded-none", (isStart || isEnd) && "bg-gray-900 text-white rounded-md shadow-sm")} onMouseEnter={() => handleMouseEnter(day)} onClick={() => handleDateClick(day)}>
-                      {format(day, "d")}
-                    </div>
-                  );
-                })}
+          <div className="truncate pr-2 font-medium">
+            {value?.start && value?.end ? (
+              <span className="flex items-center gap-1">
+                {format(value.start, "dd/MM/yyyy")} <span className="text-indigo-400 text-xs">até</span> {format(value.end, "dd/MM/yyyy")}
+              </span>
+            ) : "Selecionar Período"}
+          </div>
+        </Button>
+      </div>
+
+      {isOpen && (
+        <div 
+          ref={calendarRef} 
+          className={twMerge(clsx(
+            "fixed md:absolute mt-2 p-5 bg-white border border-slate-200 shadow-2xl rounded-2xl z-[9999] flex flex-col gap-5",
+            "w-screen md:w-auto left-0 md:left-auto",
+            popoverAlignment === "end" ? "md:right-0" : "md:left-0"
+          ))}
+          style={{ minWidth: compact ? 'auto' : '820px' }}
+        >
+          {/* Header Inputs */}
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <label className="text-xs text-slate-500 mb-1.5 block font-medium">Início do período</label>
+              <div className="relative">
+                 <input 
+                  type="text" 
+                  value={startDateStr} 
+                  readOnly
+                  placeholder="dd/mm/aaaa"
+                  className="w-full h-10 px-4 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-center font-medium bg-slate-50/50"
+                 />
               </div>
             </div>
+            <div className="flex-1">
+              <label className="text-xs text-slate-500 mb-1.5 block font-medium">Fim do período</label>
+              <div className="relative">
+                 <input 
+                  type="text" 
+                  value={endDateStr} 
+                  readOnly
+                  placeholder="dd/mm/aaaa"
+                  className="w-full h-10 px-4 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-center font-medium bg-slate-50/50"
+                 />
+              </div>
+            </div>
+            <div className="flex-grow"></div>
           </div>
-        </Material>
+
+          <div className="flex gap-8">
+            {/* Calendars Block */}
+            <div className="flex flex-col gap-6">
+              <div className="flex gap-6">
+                <div className="relative">
+                   <button onClick={prevMonth} className="absolute left-0 top-0 z-10 p-1 hover:bg-slate-100 rounded-lg transition-colors">
+                     <ArrowLeftIcon />
+                   </button>
+                   {renderMonth(currentDate)}
+                </div>
+                <div className="relative">
+                   <button onClick={nextMonth} className="absolute right-0 top-0 z-10 p-1 hover:bg-slate-100 rounded-lg transition-colors">
+                     <ArrowRightIcon />
+                   </button>
+                   {renderMonth(addMonths(currentDate, 1))}
+                </div>
+              </div>
+            </div>
+
+            {/* Vertical Divider */}
+            <div className="w-px bg-slate-100 h-auto self-stretch"></div>
+
+            {/* Sidebar Presets */}
+            <div className="w-[180px] flex flex-col gap-1.5 pt-2">
+               {typeRelativeTimes.map((preset) => (
+                 <button
+                  key={preset.id}
+                  onClick={() => handlePresetClick(preset)}
+                  className={clsx(
+                    "w-full text-left px-4 py-2.5 rounded-lg text-sm transition-all duration-200 font-medium",
+                    selectedPresetId === preset.id 
+                      ? "bg-indigo-50 text-indigo-700" 
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  )}
+                 >
+                   {preset.text}
+                 </button>
+               ))}
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+             <button 
+              onClick={cancelFilter}
+              className="px-6 h-10 rounded-lg text-sm font-semibold border border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors"
+             >
+               Cancelar
+             </button>
+             <button 
+              onClick={applyFilter}
+              className="px-8 h-10 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm"
+             >
+               Filtrar
+             </button>
+          </div>
+
+        </div>
       )}
     </div>
   );
 };
+
