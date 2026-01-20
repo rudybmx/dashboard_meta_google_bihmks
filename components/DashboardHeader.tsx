@@ -40,12 +40,15 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
      return availableFranchises.map(f => ({ value: f.name, label: f.name }));
   }, [availableFranchises]);
 
-  // 2. Extract Clients (Filtered by Franchisee only if selected)
+  // 2. Extract Clients (Filtered by Franchisee)
+  // When there's only 1 available franchise, auto-filter by that franchise even if not selected
+  const effectiveFranchiseFilter = selectedFranchisee || (availableFranchises.length === 1 ? availableFranchises[0].name : '');
+  
   const clients = useMemo(() => {
     let filtered = metaAccounts || [];
-    if (selectedFranchisee) {
-      // Filter the metaAccounts list by selected franchise name/id
-      filtered = filtered.filter(acc => acc.franchise_id === selectedFranchisee);
+    if (effectiveFranchiseFilter) {
+      // Filter the metaAccounts list by franchise name (franchise_id stores name, not UUID)
+      filtered = filtered.filter(acc => acc.franchise_id === effectiveFranchiseFilter);
     }
     
     // Sort and map to options format
@@ -55,7 +58,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         label: acc.display_name ? `${acc.display_name} (${acc.account_name})` : acc.account_name 
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metaAccounts, selectedFranchisee]);
+  }, [metaAccounts, effectiveFranchiseFilter]);
 
   const isClientRole = userRole === 'client';
   
@@ -82,7 +85,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <div className="w-[220px]">
             <Select
                 placeholder="Selecione Franquia"
-                value={selectedFranchisee}
+                value={effectiveFranchiseFilter}
                 onChange={(e) => {
                     setSelectedFranchisee(e.target.value);
                     setSelectedClient(''); // Reset client
