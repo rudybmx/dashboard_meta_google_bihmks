@@ -18,6 +18,7 @@ interface DashboardHeaderProps {
   availableFranchises: { id: string; name: string }[];
   metaAccounts: any[];
   userRole?: string;
+  assignedAccountIds?: string[]; // RBAC: User's assigned account IDs
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -32,7 +33,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isLocked = false,
   availableFranchises,
   metaAccounts,
-  userRole
+  userRole,
+  assignedAccountIds
 }) => {
   
   // 1. Prepare Franchise Options from available list
@@ -46,9 +48,26 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   
   const clients = useMemo(() => {
     let filtered = metaAccounts || [];
+    
+    // Step 1: Filter by selected franchise
     if (effectiveFranchiseFilter) {
       // Filter the metaAccounts list by franchise name (franchise_id stores name, not UUID)
       filtered = filtered.filter(acc => acc.franchise_id === effectiveFranchiseFilter);
+    }
+    
+    // Step 2: Apply RBAC - Filter by user's assigned accounts
+    // Admins and executives see all accounts, other roles are restricted
+    const isAdmin = userRole === 'admin' || userRole === 'executive';
+    
+    if (!isAdmin && assignedAccountIds && assignedAccountIds.length > 0) {
+      filtered = filtered.filter(acc => {
+        // Normalize account IDs (remove 'act_' prefix if present for comparison)
+        const normalizedAccId = acc.account_id.replace(/^act_/i, '');
+        return assignedAccountIds.some(allowedId => {
+          const normalizedAllowedId = allowedId.replace(/^act_/i, '');
+          return normalizedAccId === normalizedAllowedId || acc.account_id === allowedId;
+        });
+      });
     }
     
     // Sort and map to options format
@@ -59,7 +78,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         label: acc.display_name || acc.account_name
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metaAccounts, effectiveFranchiseFilter]);
+  }, [metaAccounts, effectiveFranchiseFilter, userRole, assignedAccountIds]);
 
   const isClientRole = userRole === 'client';
   

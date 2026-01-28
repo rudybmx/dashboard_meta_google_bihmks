@@ -269,7 +269,7 @@ export default function App() {
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight">Configurações</h2>
              </div>
            ) : (
-             <DashboardHeader 
+              <DashboardHeader 
                 title={activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : 'Dashboard'}
                 data={data}
                 selectedFranchisee={selectedFranchise}
@@ -282,6 +282,7 @@ export default function App() {
                 availableFranchises={availableFranchises}
                 metaAccounts={metaAccounts}
                 userRole={userProfile?.role}
+                assignedAccountIds={userProfile?.assigned_account_ids}
               />
            )}
         </header>
