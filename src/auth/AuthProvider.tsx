@@ -35,16 +35,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             try {
                 const getSessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise<{data: {session: null}, error: Error}>((_, reject) =>
+                const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) =>
                     setTimeout(() => reject(new Error('Session check timeout')), 3000)
                 );
 
                 const result = await Promise.race([getSessionPromise, timeoutPromise]);
-                
+
                 if (result.error) {
                     throw result.error;
                 }
-                
+
                 currentSession = result.data.session;
             } catch (err: any) {
                 if (err.message === 'Session check timeout') {
@@ -102,11 +102,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         // This is "no rows returned", which is expected if maybeSingle is used and no row exists
                         // But we already handle !profileData below.
                     } else if (profileError.message?.includes('schema') || profileError.code?.startsWith('42') || profileError.code?.startsWith('P0')) {
-                       console.error('[Auth] Erro de Schema/Estrutura detectado:', profileError);
-                       if (isMounted) {
-                           setError('Erro interno de banco de dados (Schema). Por favor, execute o script de correção no painel do Supabase.');
-                       }
-                       return;
+                        console.error('[Auth] Erro de Schema/Estrutura detectado:', profileError);
+                        if (isMounted) {
+                            setError('Erro interno de banco de dados (Schema). Por favor, execute o script de correção no painel do Supabase.');
+                        }
+                        return;
                     } else {
                         throw profileError;
                     }
@@ -124,20 +124,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     return;
                 }
 
-                // Helper para parsing seguro de campos JSON/Array
-                const parseArrayField = (value: any): string[] => {
-                    if (Array.isArray(value)) return value;
-                    if (typeof value === 'string') {
-                        try {
-                            const parsed = JSON.parse(value);
-                            return Array.isArray(parsed) ? parsed : [];
-                        } catch {
-                            return [];
-                        }
-                    }
-                    return [];
-                };
-
                 // Perfil encontrado
                 const pData = profileData as any;
                 const profile: UserProfile = {
@@ -145,8 +131,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     email: pData.email || currentSession.user.email,
                     name: pData.nome || currentSession.user.email?.split('@')[0] || 'Usuário',
                     role: (pData.role as UserRole) || 'client',
-                    assigned_franchise_ids: parseArrayField(pData.assigned_franchise_ids),
-                    assigned_account_ids: parseArrayField(pData.assigned_account_ids),
+                    // DB uses native text[], so no parsing needed. Fallback to empty array.
+                    assigned_franchise_ids: pData.assigned_franchise_ids || [],
+                    assigned_account_ids: pData.assigned_account_ids || [],
                     permissions: pData.permissions,
                     created_at: pData.created_at,
                 };

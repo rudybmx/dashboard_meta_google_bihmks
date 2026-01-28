@@ -2,18 +2,20 @@
 @tailwind components;
 @tailwind utilities;
  
+@import url('https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css');
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
- 
+    --background: 0 0% 100%; /* White */
+    --foreground: 222.2 84% 4.9%; /* Slate 950 */
+
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
  
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
  
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 214 100% 50%; /* #006EFF */
     --primary-foreground: 210 40% 98%;
  
     --secondary: 210 40% 96.1%;
@@ -22,31 +24,34 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
  
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 14 100% 60%; /* #FF6332 */
+    --accent-foreground: 210 40% 98%;
  
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 355 100% 39%; /* #C80010 */
     --destructive-foreground: 210 40% 98%;
  
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 214 100% 50%;
  
     --radius: 0.5rem;
+    
+    --sidebar: 234 100% 10%; /* #000533 */
+    --sidebar-foreground: 210 40% 98%;
   }
  
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 234 100% 10%; /* #000533 (Dark Navy) as main background? Or Slate 950? User said "Dark Background" e.g. #0A0A0A placeholder, but image had dark navy. Let's use Dark Navy as Sidebar/Background base */
     --foreground: 210 40% 98%;
  
-    --card: 222.2 84% 4.9%;
+    --card: 234 90% 12%; /* Slightly lighter than bg */
     --card-foreground: 210 40% 98%;
  
-    --popover: 222.2 84% 4.9%;
+    --popover: 234 100% 10%;
     --popover-foreground: 210 40% 98%;
  
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 214 100% 50%; /* #006EFF */
+    --primary-foreground: 210 40% 98%;
  
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
