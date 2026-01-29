@@ -11,6 +11,13 @@ type AccountConfigInsert = Database['public']['Tables']['accounts_config']['Inse
 type FranchiseRow = Database['public']['Tables']['tb_franqueados']['Row'];
 type MetaAccountUpdate = Database['public']['Tables']['tb_meta_ads_contas']['Update'];
 
+// Type for our new View (manually defined as it might not be in generated types yet)
+type FirstUrlRow = {
+    ad_id: string;
+    ad_image_url: string;
+    first_seen_date: string;
+};
+
 // Tabela/View no Supabase
 const VIEW_NAME = 'vw_dashboard_unified';
 
@@ -78,6 +85,26 @@ export const fetchUserProfile = async (email: string | undefined) => {
     return promise;
 };
 
+// --- HELPER: Fetch First URLs for Persistence ---
+const fetchAdFirstUrls = async (adIds: string[]): Promise<FirstUrlRow[]> => {
+    if (!adIds.length) return [];
+
+    // Filter unique IDs to avoid massive queries
+    const uniqueIds = Array.from(new Set(adIds));
+
+    const { data, error } = await supabase
+        .from('vw_ad_first_urls' as any) // Cast as any since it's a new view
+        .select('ad_id, ad_image_url, first_seen_date')
+        .in('ad_id', uniqueIds);
+
+    if (error) {
+        console.warn("Could not fetch First-URL persistence data:", error);
+        return [];
+    }
+
+    return (data as unknown as FirstUrlRow[]) || [];
+};
+
 export const fetchCampaignData = async (
     startDate: Date,
     endDate: Date,
@@ -136,55 +163,98 @@ export const fetchCampaignData = async (
         const currentDataRaw = currRes.data || [];
         const previousDataRaw = prevRes.data || [];
 
-        const mapRow = (row: ViewRow): CampaignData => ({
-            unique_id: row.unique_id || `gen-${Math.random()}`,
-            franqueado: row.franqueado || '',
-            account_id: row.account_id || '',
-            account_name: row.account_name || '',
-            ad_id: row.ad_id || '',
-            date_start: row.date_start || '',
-            campaign_name: row.campaign_name || '',
-            adset_name: row.adset_name || undefined,
-            ad_name: row.ad_name || undefined,
-            objective: row.objective || undefined,
-            valor_gasto: row.valor_gasto || 0,
-            cpc: row.cpc || 0,
-            ctr: row.ctr || 0,
-            cpm: row.cpm || 0,
-            frequencia: row.frequencia || 0,
-            custo_por_lead: row.custo_por_lead || 0,
-            custo_por_compra: row.custo_por_compra || 0,
-            alcance: row.alcance || 0,
-            impressoes: row.impressoes || 0,
-            cliques_todos: row.cliques_todos || 0,
-            leads_total: row.leads_total || 0,
-            compras: row.compras || 0,
-            msgs_iniciadas: row.msgs_iniciadas || 0,
-            msgs_conexoes: row.msgs_conexoes || 0,
-            msgs_novos_contatos: row.msgs_novos_contatos || 0,
-            msgs_profundidade_2: row.msgs_profundidade_2 || 0,
-            msgs_profundidade_3: row.msgs_profundidade_3 || 0,
-            target_plataformas: row.target_plataformas || '',
-            target_interesses: row.target_interesses || undefined,
-            target_familia: row.target_familia || undefined,
-            target_comportamentos: row.target_comportamentos || undefined,
-            target_publicos_custom: row.target_publicos_custom || undefined,
-            target_local_1: row.target_local_1 || undefined,
-            target_local_2: row.target_local_2 || undefined,
-            target_local_3: row.target_local_3 || undefined,
-            target_tipo_local: row.target_tipo_local || undefined,
-            target_brand_safety: row.target_brand_safety || undefined,
-            target_posicao_fb: row.target_posicao_fb || undefined,
-            target_posicao_ig: row.target_posicao_ig || undefined,
-            target_idade_min: row.target_idade_min || undefined,
-            target_idade_max: row.target_idade_max || undefined,
-            ad_image_url: row.ad_image_url || undefined,
-            ad_title: row.ad_title || undefined,
-            ad_body: row.ad_body || undefined,
-            ad_destination_url: row.ad_destination_url || undefined,
-            ad_cta: row.ad_cta || undefined,
-            ad_post_link: row.ad_post_link || undefined
-        });
+        // --- Data Merge: First-URL Persistence ---
+        // We only really care about fixing missing URLs in the CURRENT dataset for now.
+        // Identify Ads with missing URLs
+        const adsWithMissingUrls = currentDataRaw.filter(
+            row => !row.ad_image_url || row.ad_image_url.trim() === ''
+        ).map(row => row.ad_id).filter(Boolean);
+
+        let urlMap = new Map<string, string>();
+
+        if (adsWithMissingUrls.length > 0) {
+            const firstUrls = await fetchAdFirstUrls(adsWithMissingUrls);
+
+            // Build Map: Ad ID -> Best URL
+            // Strategy: For each ad_id, we might have multiple "versions" (if content changed).
+            // We want the LATEST version (max first_seen_date) that is arguably the "current" valid creative.
+            // Alternatively, matching strictly by ID.
+            // Since we don't have date context per row easily (it's aggregated), 
+            // using the Latest available Valid URL for that ID is the best fallback.
+
+            // Sort by Date Descending first so map.set overwrites with older? No, iterate and keep latest.
+            // Actually, simply sorting by first_seen_date ASC and setting map will end with latest.
+            firstUrls.sort((a, b) =>
+                new Date(a.first_seen_date).getTime() - new Date(b.first_seen_date).getTime()
+            );
+
+            firstUrls.forEach(row => {
+                if (row.ad_image_url) {
+                    urlMap.set(row.ad_id, row.ad_image_url);
+                }
+            });
+        }
+        // -----------------------------------------
+
+        const mapRow = (row: ViewRow): CampaignData => {
+            // APPLY PERSISTENCE LOGIC
+            let imageUrl = row.ad_image_url || undefined;
+            if (!imageUrl || imageUrl.trim() === '') {
+                if (row.ad_id && urlMap.has(row.ad_id)) {
+                    imageUrl = urlMap.get(row.ad_id);
+                }
+            }
+
+            return {
+                unique_id: row.unique_id || `gen-${Math.random()}`,
+                franqueado: row.franqueado || '',
+                account_id: row.account_id || '',
+                account_name: row.account_name || '',
+                ad_id: row.ad_id || '',
+                date_start: row.date_start || '',
+                campaign_name: row.campaign_name || '',
+                adset_name: row.adset_name || undefined,
+                ad_name: row.ad_name || undefined,
+                objective: row.objective || undefined,
+                valor_gasto: row.valor_gasto || 0,
+                cpc: row.cpc || 0,
+                ctr: row.ctr || 0,
+                cpm: row.cpm || 0,
+                frequencia: row.frequencia || 0,
+                custo_por_lead: row.custo_por_lead || 0,
+                custo_por_compra: row.custo_por_compra || 0,
+                alcance: row.alcance || 0,
+                impressoes: row.impressoes || 0,
+                cliques_todos: row.cliques_todos || 0,
+                leads_total: row.leads_total || 0,
+                compras: row.compras || 0,
+                msgs_iniciadas: row.msgs_iniciadas || 0,
+                msgs_conexoes: row.msgs_conexoes || 0,
+                msgs_novos_contatos: row.msgs_novos_contatos || 0,
+                msgs_profundidade_2: row.msgs_profundidade_2 || 0,
+                msgs_profundidade_3: row.msgs_profundidade_3 || 0,
+                target_plataformas: row.target_plataformas || '',
+                target_interesses: row.target_interesses || undefined,
+                target_familia: row.target_familia || undefined,
+                target_comportamentos: row.target_comportamentos || undefined,
+                target_publicos_custom: row.target_publicos_custom || undefined,
+                target_local_1: row.target_local_1 || undefined,
+                target_local_2: row.target_local_2 || undefined,
+                target_local_3: row.target_local_3 || undefined,
+                target_tipo_local: row.target_tipo_local || undefined,
+                target_brand_safety: row.target_brand_safety || undefined,
+                target_posicao_fb: row.target_posicao_fb || undefined,
+                target_posicao_ig: row.target_posicao_ig || undefined,
+                target_idade_min: row.target_idade_min || undefined,
+                target_idade_max: row.target_idade_max || undefined,
+                ad_image_url: imageUrl,
+                ad_title: row.ad_title || undefined,
+                ad_body: row.ad_body || undefined,
+                ad_destination_url: row.ad_destination_url || undefined,
+                ad_cta: row.ad_cta || undefined,
+                ad_post_link: row.ad_post_link || undefined
+            };
+        };
 
         return {
             current: currentDataRaw.map(mapRow),
