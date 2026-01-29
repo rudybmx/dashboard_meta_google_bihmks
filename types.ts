@@ -24,7 +24,7 @@ export interface DashboardMetric {
   custo_por_compra: number;
   alcance: number;
   valor_compras?: number; // Total Purchase Value (Revenue)
-  
+
   // Volume (Bottom Funnel) - All numeric
   impressoes: number;
   cliques_todos: number;
@@ -51,7 +51,7 @@ export interface DashboardMetric {
   target_posicao_ig?: string;
   target_idade_min?: number;
   target_idade_max?: number;
-  
+
   // Creative
   ad_image_url?: string;
   ad_title?: string;
@@ -93,7 +93,8 @@ export interface MetaAdAccount {
   account_name: string; // Original Name
   display_name?: string; // Friendly Name
   franchise_id?: string; // Linked Franchise
-  status: 'active' | 'removed' | 'archived'; 
+  categoria_id?: string; // Linked Category
+  status: 'active' | 'removed' | 'archived';
   client_visibility: boolean;
   current_balance: number;
   last_sync: string;

@@ -194,6 +194,84 @@ export type Database = {
         }
         Relationships: []
       }
+      perfil_acesso: {
+        Row: {
+          assigned_account_ids: string[] | null
+          assigned_franchise_ids: string[] | null
+          ativo: boolean | null
+          created_at: string
+          email: string | null
+          id: string
+          nome: string | null
+          role: string | null
+        }
+        Insert: {
+          assigned_account_ids?: string[] | null
+          assigned_franchise_ids?: string[] | null
+          ativo?: boolean | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          role?: string | null
+        }
+        Update: {
+          assigned_account_ids?: string[] | null
+          assigned_franchise_ids?: string[] | null
+          ativo?: boolean | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          role?: string | null
+        }
+        Relationships: []
+      }
+      tb_categorias_clientes: {
+        Row: {
+          cpl_medio: number | null
+          created_at: string | null
+          fase1_nome: string | null
+          fase1_perc: number | null
+          fase2_nome: string | null
+          fase2_perc: number | null
+          fase3_nome: string | null
+          fase3_perc: number | null
+          fase4_nome: string | null
+          fase4_perc: number | null
+          id: string
+          nome_categoria: string
+        }
+        Insert: {
+          cpl_medio?: number | null
+          created_at?: string | null
+          fase1_nome?: string | null
+          fase1_perc?: number | null
+          fase2_nome?: string | null
+          fase2_perc?: number | null
+          fase3_nome?: string | null
+          fase3_perc?: number | null
+          fase4_nome?: string | null
+          fase4_perc?: number | null
+          id?: string
+          nome_categoria: string
+        }
+        Update: {
+          cpl_medio?: number | null
+          created_at?: string | null
+          fase1_nome?: string | null
+          fase1_perc?: number | null
+          fase2_nome?: string | null
+          fase2_perc?: number | null
+          fase3_nome?: string | null
+          fase3_perc?: number | null
+          fase4_nome?: string | null
+          fase4_perc?: number | null
+          id?: string
+          nome_categoria?: string
+        }
+        Relationships: []
+      }
       tb_franqueados: {
         Row: {
           ativo: boolean | null
@@ -221,6 +299,7 @@ export type Database = {
       tb_meta_ads_contas: {
         Row: {
           account_id: string
+          categoria_id: string | null
           client_visibility: boolean
           created_at: string
           currency: string | null
@@ -237,6 +316,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          categoria_id?: string | null
           client_visibility?: boolean
           created_at?: string
           currency?: string | null
@@ -253,6 +333,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          categoria_id?: string | null
           client_visibility?: boolean
           created_at?: string
           currency?: string | null
@@ -267,7 +348,71 @@ export type Database = {
           total_gasto?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tb_meta_ads_contas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "tb_categorias_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tb_planejamento_metas: {
+        Row: {
+          account_id: string
+          active: boolean | null
+          average_ticket: number
+          cpl_average: number
+          cpl_custom: boolean | null
+          created_at: string | null
+          id: string
+          is_undefined: boolean | null
+          month: number | null
+          observation: string | null
+          planned_revenue: number
+          updated_at: string | null
+          year: number | null
+        }
+        Insert: {
+          account_id: string
+          active?: boolean | null
+          average_ticket: number
+          cpl_average: number
+          cpl_custom?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_undefined?: boolean | null
+          month?: number | null
+          observation?: string | null
+          planned_revenue: number
+          updated_at?: string | null
+          year?: number | null
+        }
+        Update: {
+          account_id?: string
+          active?: boolean | null
+          average_ticket?: number
+          cpl_average?: number
+          cpl_custom?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_undefined?: boolean | null
+          month?: number | null
+          observation?: string | null
+          planned_revenue?: number
+          updated_at?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_planejamento_metas_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tb_meta_ads_contas"
+            referencedColumns: ["account_id"]
+          },
+        ]
       }
       user_profiles: {
         Row: {
@@ -296,39 +441,6 @@ export type Database = {
           id?: string
           name?: string | null
           role?: string | null
-        }
-        Relationships: []
-      }
-      perfil_acesso: {
-        Row: {
-          id: string
-          created_at: string
-          nome: string | null
-          email: string | null
-          role: string | null
-          ativo: boolean | null
-          assigned_franchise_ids: string[] | null
-          assigned_account_ids: string[] | null
-        }
-        Insert: {
-          id?: string
-          created_at?: string
-          nome?: string | null
-          email?: string | null
-          role?: string | null
-          ativo?: boolean | null
-          assigned_franchise_ids?: string[] | null
-          assigned_account_ids?: string[] | null
-        }
-        Update: {
-          id?: string
-          created_at?: string
-          nome?: string | null
-          email?: string | null
-          role?: string | null
-          ativo?: boolean | null
-          assigned_franchise_ids?: string[] | null
-          assigned_account_ids?: string[] | null
         }
         Relationships: []
       }
@@ -388,25 +500,61 @@ export type Database = {
       }
     }
     Functions: {
-      get_managerial_data: {
+      get_campaign_summary: {
         Args: {
           p_start_date: string
           p_end_date: string
-          p_franchise_filter?: string[] | null
-          p_account_filter?: string[] | null
+          p_franchise_ids?: string[]
+          p_account_ids?: string[]
         }
         Returns: {
-          meta_account_id: string
-          nome_conta: string
-          franquia: string
-          saldo_atual: number
-          investimento: number
-          leads: number
-          compras: number
-          conversas: number
-          clicks: number
-          impressoes: number
+          unique_id: string
+          franqueado: string
+          account_id: string
+          account_name: string
+          ad_id: string
+          date_start: string
+          campaign_name: string
+          adset_name: string
+          ad_name: string
+          objective: string
+          valor_gasto: number
+          cpc: number
+          ctr: number
+          cpm: number
+          frequencia: number
+          custo_por_lead: number
+          custo_por_compra: number
           alcance: number
+          impressoes: number
+          cliques_todos: number
+          leads_total: number
+          compras: number
+          msgs_iniciadas: number
+          msgs_conexoes: number
+          msgs_novos_contatos: number
+          msgs_profundidade_2: number
+          msgs_profundidade_3: number
+          target_plataformas: string
+          target_interesses: string
+          target_familia: string
+          target_comportamentos: string
+          target_publicos_custom: string
+          target_local_1: string
+          target_local_2: string
+          target_local_3: string
+          target_tipo_local: string
+          target_brand_safety: string
+          target_posicao_fb: string
+          target_posicao_ig: string
+          target_idade_min: number
+          target_idade_max: number
+          ad_image_url: string
+          ad_title: string
+          ad_body: string
+          ad_destination_url: string
+          ad_cta: string
+          ad_post_link: string
         }[]
       }
       get_kpi_comparison: {
@@ -415,8 +563,8 @@ export type Database = {
           p_end_date: string
           p_prev_start_date: string
           p_prev_end_date: string
-          p_franchise_filter?: string[] | null
-          p_account_filter?: string[] | null
+          p_franchise_filter?: string[]
+          p_account_filter?: string[]
         }
         Returns: {
           spend: number
@@ -433,12 +581,33 @@ export type Database = {
           prev_conversations: number
         }[]
       }
+      get_managerial_data: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_franchise_filter?: string[]
+          p_account_filter?: string[]
+        }
+        Returns: {
+          meta_account_id: string
+          nome_conta: string
+          franquia: string
+          saldo_atual: number
+          investimento: number
+          leads: number
+          compras: number
+          conversas: number
+          clicks: number
+          impressoes: number
+          alcance: number
+        }[]
+      }
       get_summary_report: {
         Args: {
           p_start_date: string
           p_end_date: string
-          p_franchise_filter?: string[] | null
-          p_account_filter?: string[] | null
+          p_franchise_filter?: string[]
+          p_account_filter?: string[]
         }
         Returns: {
           franchise_name: string
@@ -460,104 +629,18 @@ export type Database = {
         }[]
       }
     }
-    Enums: {}
-    CompositeTypes: {}
+    Enums: {
+      account_status: "active" | "inactive" | "removed" | "pending"
+      agenda_appointment_status:
+      | "scheduled"
+      | "cancelled"
+      | "completed"
+      | "no_show"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
 
-export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never

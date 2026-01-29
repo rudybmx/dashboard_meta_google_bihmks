@@ -366,6 +366,7 @@ export const fetchMetaAccounts = async () => {
         account_name: row.nome_original || 'Sem Nome',
         display_name: row.nome_ajustado || '',
         franchise_id: row.franqueado || '', // Storing Name as ID/Link for now based on legacy text column
+        categoria_id: row.categoria_id || '', // Linked Category ID
         status: (row.status_interno === 'removed' ? 'removed' : 'active') as 'removed' | 'active',
         client_visibility: row.client_visibility ?? true, // Default true
         current_balance: safeFloat(row.saldo_balanco),
@@ -384,6 +385,7 @@ export const updateMetaAccount = async (id: string, updates: Partial<any>) => {
     if (updates.display_name !== undefined) dbUpdates.nome_ajustado = updates.display_name;
     if (updates.status_interno !== undefined) dbUpdates.status_interno = updates.status_interno;
     if (updates.franchise_id !== undefined) dbUpdates.franqueado = updates.franchise_id;
+    if (updates.categoria_id !== undefined) dbUpdates.categoria_id = updates.categoria_id;
     if (updates.client_visibility !== undefined) dbUpdates.client_visibility = updates.client_visibility;
     if (updates.status !== undefined) dbUpdates.status_interno = updates.status;
 
@@ -428,13 +430,8 @@ export const createFranchise = async (name: string) => {
         throw error;
     }
 
-    const franchiseData = data as any;
-    return {
-        id: franchiseData.id,
-        name: franchiseData.nome || '',
-        active: franchiseData.ativo || false
-    };
 };
+
 
 export const deleteFranchise = async (id: string) => {
     console.log("DEBUG: Using RPC for Franchise Hard Delete");
@@ -446,4 +443,131 @@ export const deleteFranchise = async (id: string) => {
         console.error("Error deleting franchise:", error);
         throw error;
     }
+};
+
+// --- CATEGORIES (tb_categorias_clientes) ---
+
+export type CategoryRow = Database['public']['Tables']['tb_categorias_clientes']['Row'];
+export type CategoryInsert = Database['public']['Tables']['tb_categorias_clientes']['Insert'];
+export type CategoryUpdate = Database['public']['Tables']['tb_categorias_clientes']['Update'];
+
+export const fetchCategories = async () => {
+    const { data, error } = await supabase
+        .from('tb_categorias_clientes')
+        .select('*')
+        .order('nome_categoria', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+    }
+    return data || [];
+};
+
+export const createCategory = async (category: CategoryInsert) => {
+    const { data, error } = await supabase
+        .from('tb_categorias_clientes')
+        .insert(category)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const updateCategory = async (id: string, updates: CategoryUpdate) => {
+    const { data, error } = await supabase
+        .from('tb_categorias_clientes')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const deleteCategory = async (id: string) => {
+    const { error } = await supabase
+        .from('tb_categorias_clientes')
+        .delete()
+        .eq('id', id);
+
+
+    if (error) throw error;
+};
+
+// --- PLANNING (tb_planejamento_metas) ---
+
+export type PlanningRow = Database['public']['Tables']['tb_planejamento_metas']['Row'];
+export type PlanningInsert = Database['public']['Tables']['tb_planejamento_metas']['Insert'];
+export type PlanningUpdate = Database['public']['Tables']['tb_planejamento_metas']['Update'];
+
+export const fetchPlannings = async (accountId?: string) => {
+    let query = supabase
+        .from('tb_planejamento_metas')
+        .select(`
+            *,
+            account:tb_meta_ads_contas(account_id, nome_original, nome_ajustado, categoria_id)
+        `)
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+
+    if (accountId) {
+        query = query.eq('account_id', accountId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching plannings:', error);
+        return [];
+    }
+    return data || [];
+};
+
+export const savePlanning = async (planning: PlanningInsert) => {
+    // Logic:
+    // 1. If it's Undefined (is_undefined=true), deactivate all other active undefined plannings for this account.
+    // 2. If it's Monthly (is_undefined=false), deactivate any previous active planning for the SAME Month/Year.
+
+    // Step 1: Deactivate conflicting
+    if (planning.is_undefined) {
+        await supabase
+            .from('tb_planejamento_metas')
+            .update({ active: false })
+            .eq('account_id', planning.account_id)
+            .eq('is_undefined', true)
+            .eq('active', true);
+    } else {
+        if (planning.month && planning.year) {
+            await supabase
+                .from('tb_planejamento_metas')
+                .update({ active: false })
+                .eq('account_id', planning.account_id)
+                .eq('month', planning.month)
+                .eq('year', planning.year)
+                .eq('is_undefined', false)
+                .eq('active', true);
+        }
+    }
+
+    // Step 2: Insert new
+    const { data, error } = await supabase
+        .from('tb_planejamento_metas')
+        .insert(planning)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const deactivatePlanning = async (id: string) => {
+    const { error } = await supabase
+        .from('tb_planejamento_metas')
+        .update({ active: false })
+        .eq('id', id);
+
+    if (error) throw error;
 };

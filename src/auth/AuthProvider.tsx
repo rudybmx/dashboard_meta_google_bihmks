@@ -146,8 +146,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                 if (isMounted) {
                     setSession(currentSession);
-                    setUserProfile(profile);
-                    console.log('[Auth] ✅ Autenticação completa:', profile.email);
+
+                    // Deep comparison to prevent unnecessary re-renders
+                    setUserProfile(prev => {
+                        const isSame = prev &&
+                            prev.id === profile.id &&
+                            prev.email === profile.email &&
+                            prev.role === profile.role &&
+                            JSON.stringify(prev.assigned_account_ids) === JSON.stringify(profile.assigned_account_ids) &&
+                            JSON.stringify(prev.assigned_franchise_ids) === JSON.stringify(profile.assigned_franchise_ids);
+
+                        if (isSame) {
+                            console.log('[Auth] Perfil idêntico ao atual. Mantendo referência para estabilidade.');
+                            return prev;
+                        }
+
+                        console.log('[Auth] ✅ Autenticação completa (Novo Perfil):', profile.email);
+                        return profile;
+                    });
                 }
             } catch (profileErr: any) {
                 console.error('[Auth] Erro ao buscar perfil:', profileErr);
