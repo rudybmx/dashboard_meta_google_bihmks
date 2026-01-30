@@ -237,9 +237,9 @@ export const fetchCampaignData = async (
             return {
                 unique_id: row.unique_id || `gen-${Math.random()}`,
                 franqueado: row.franqueado || '',
-                account_id: row.account_id || '',
+                account_id: String(row.account_id || ''),
                 account_name: row.account_name || '',
-                ad_id: row.ad_id || '',
+                ad_id: String(row.ad_id || ''),
                 date_start: row.date_start || '',
                 campaign_name: row.campaign_name || '',
                 adset_name: row.adset_name || undefined,
@@ -264,6 +264,10 @@ export const fetchCampaignData = async (
                 msgs_profundidade_3: row.msgs_profundidade_3 || 0,
                 target_plataformas: row.target_plataformas || '',
                 ad_image_url: imageUrl,
+                ad_destination_url: row.ad_destination_url || undefined,
+                ad_post_link: row.ad_post_link || undefined,
+                ad_body: row.ad_body || undefined,
+                ad_cta: row.ad_cta || undefined,
             };
         };
 
