@@ -98,6 +98,9 @@ const BMSettingsTabComponent: React.FC = () => {
         return row[field];
     }
 
+    // Define meta type locally or use module augmentation if strict typing is needed across files
+    // For now we cast inside the cell
+    
     // Columns Definition
     const columns = useMemo<ColumnDef<MetaAdAccount>[]>(() => [
         {
@@ -126,13 +129,18 @@ const BMSettingsTabComponent: React.FC = () => {
                 </button>
             ),
             accessorKey: 'account_name',
-            cell: ({ row }) => (
-                <div className="flex flex-col leading-tight max-w-[200px]">
-                    <span className="font-semibold text-slate-700 text-xs truncate" title={row.original.account_name}>{row.original.account_name}</span>
-                    <span className="font-mono text-[9px] text-slate-400">{row.original.account_id}</span>
-                    {pendingUpdates[row.original.id] && <span className="text-[9px] text-amber-600 font-bold">Editado</span>}
-                </div>
-            )
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                const pendingUpdates = meta?.pendingUpdates || {};
+                
+                return (
+                    <div className="flex flex-col leading-tight max-w-[200px]">
+                        <span className="font-semibold text-slate-700 text-xs truncate" title={row.original.account_name}>{row.original.account_name}</span>
+                        <span className="font-mono text-[9px] text-slate-400">{row.original.account_id}</span>
+                        {pendingUpdates[row.original.id] && <span className="text-[9px] text-amber-600 font-bold">Editado</span>}
+                    </div>
+                )
+            }
         },
         {
             header: ({ column }) => (
@@ -145,12 +153,19 @@ const BMSettingsTabComponent: React.FC = () => {
                 </button>
             ),
             accessorKey: 'display_name',
-            cell: ({ row }) => {
-                const val = getValue(row.original, 'display_name') as string || '';
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                const pendingUpdates = meta?.pendingUpdates || {};
+                const handleLocalChange = meta?.handleLocalChange;
+
+                const val = (pendingUpdates[row.original.id] && pendingUpdates[row.original.id].display_name !== undefined) 
+                    ? pendingUpdates[row.original.id].display_name 
+                    : (row.original.display_name || '');
+
                 return (
                     <input
                         className={`w-full max-w-[180px] bg-transparent border-b hover:border-slate-300 focus:border-indigo-500 focus:outline-none text-xs py-1 transition-colors pl-0 placeholder:text-slate-300 font-medium ${pendingUpdates[row.original.id]?.display_name !== undefined ? 'border-amber-400 bg-amber-50' : 'border-transparent'}`}
-                        value={val}
+                        value={val as string}
                         onChange={e => handleLocalChange(row.original.id, 'display_name', e.target.value)}
                         placeholder={row.original.account_name}
                     />
@@ -160,8 +175,15 @@ const BMSettingsTabComponent: React.FC = () => {
         {
             header: 'Vínculo',
             accessorKey: 'franchise_id',
-            cell: ({ row }) => {
-                const val = getValue(row.original, 'franchise_id') as string || '';
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                const pendingUpdates = meta?.pendingUpdates || {};
+                const handleLocalChange = meta?.handleLocalChange;
+
+                const val = (pendingUpdates[row.original.id] && pendingUpdates[row.original.id].franchise_id !== undefined)
+                    ? pendingUpdates[row.original.id].franchise_id
+                    : (row.original.franchise_id || '');
+
                 return (
                     <div className="relative w-[180px]">
                         <select
@@ -170,11 +192,11 @@ const BMSettingsTabComponent: React.FC = () => {
                         ${!val ? 'text-slate-400 italic' : ''}
                         ${pendingUpdates[row.original.id]?.franchise_id !== undefined ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}
                     `}
-                            value={val}
+                            value={val as string}
                             onChange={(e) => handleLocalChange(row.original.id, 'franchise_id', e.target.value || null)}
                         >
                             <option value="">-- Vincular --</option>
-                            {franchises.map(f => (
+                            {franchises.map((f: any) => (
                                 f ? <option key={f.id} value={f.name}>{f.name}</option> : null
                             ))}
                         </select>
@@ -188,8 +210,15 @@ const BMSettingsTabComponent: React.FC = () => {
         {
             header: 'Categoria',
             accessorKey: 'categoria_id',
-            cell: ({ row }) => {
-                const val = getValue(row.original, 'categoria_id') as string || '';
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                const pendingUpdates = meta?.pendingUpdates || {};
+                const handleLocalChange = meta?.handleLocalChange;
+
+                const val = (pendingUpdates[row.original.id] && pendingUpdates[row.original.id].categoria_id !== undefined)
+                    ? pendingUpdates[row.original.id].categoria_id
+                    : (row.original.categoria_id || '');
+
                 return (
                     <div className="relative w-[160px]">
                         <select
@@ -198,11 +227,11 @@ const BMSettingsTabComponent: React.FC = () => {
                         ${!val ? 'text-slate-400 italic' : ''}
                         ${pendingUpdates[row.original.id]?.categoria_id !== undefined ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}
                     `}
-                            value={val}
+                            value={val as string}
                             onChange={(e) => handleLocalChange(row.original.id, 'categoria_id', e.target.value || null)}
                         >
                             <option value="">-- Sem Categoria --</option>
-                            {categories.map(c => (
+                            {categories.map((c: any) => (
                                 <option key={c.id} value={c.id}>{c.nome_categoria}</option>
                             ))}
                         </select>
@@ -224,8 +253,15 @@ const BMSettingsTabComponent: React.FC = () => {
                 </button>
             ),
             accessorKey: 'client_visibility',
-            cell: ({ row }) => {
-                const isVisible = getValue(row.original, 'client_visibility') as boolean;
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                const pendingUpdates = meta?.pendingUpdates || {};
+                const handleLocalChange = meta?.handleLocalChange;
+
+                const isVisible = (pendingUpdates[row.original.id] && pendingUpdates[row.original.id].client_visibility !== undefined)
+                    ? pendingUpdates[row.original.id].client_visibility
+                    : row.original.client_visibility;
+                
                 const isModified = pendingUpdates[row.original.id]?.client_visibility !== undefined;
 
                 return (
@@ -290,7 +326,7 @@ const BMSettingsTabComponent: React.FC = () => {
                 </span>
             )
         }
-    ], [franchises, categories, pendingUpdates]);
+    ], [franchises, categories]); // REMOVIDO: pendingUpdates para garantir estabilidade das colunas
 
     // Filtering Logic
     const filteredData = useMemo(() => {
@@ -333,6 +369,10 @@ const BMSettingsTabComponent: React.FC = () => {
             pagination: {
                 pageSize: 25,
             }
+        },
+        meta: {
+            pendingUpdates,
+            handleLocalChange
         }
     });
 
