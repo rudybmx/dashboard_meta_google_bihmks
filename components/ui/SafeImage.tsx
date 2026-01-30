@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,15 @@ export const SafeImage: React.FC<SafeImageProps> = ({
 }) => {
     const [hasError, setHasError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const imgRef = useRef<HTMLImageElement>(null);
+
+    useEffect(() => {
+        setHasError(false);
+        setIsLoading(true);
+        if (imgRef.current && imgRef.current.complete) {
+            setIsLoading(false);
+        }
+    }, [src]);
 
     const handleError = () => {
         setHasError(true);
@@ -49,8 +58,11 @@ export const SafeImage: React.FC<SafeImageProps> = ({
                 </div>
             )}
             <img
+                ref={imgRef}
                 src={src}
                 alt={alt}
+                referrerPolicy="no-referrer"
+                loading="lazy"
                 className={cn(
                     "w-full h-full object-cover transition-opacity duration-300",
                     isLoading ? "opacity-0" : "opacity-100",

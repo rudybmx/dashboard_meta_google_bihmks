@@ -175,7 +175,7 @@ const BMSettingsTabComponent: React.FC = () => {
                         >
                             <option value="">-- Vincular --</option>
                             {franchises.map(f => (
-                                <option key={f.id} value={f.name}>{f.name}</option>
+                                f ? <option key={f.id} value={f.name}>{f.name}</option> : null
                             ))}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-slate-500">
@@ -408,7 +408,7 @@ const BMSettingsTabComponent: React.FC = () => {
                             <option value="all">Unidades: Todas</option>
                             <option value="unassigned">⚠️ Sem Vínculo</option>
                             <option disabled>──────────</option>
-                            {franchises.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                            {franchises.map(f => f ? <option key={f.id} value={f.name}>{f.name}</option> : null)}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
                             <Filter size={14} />

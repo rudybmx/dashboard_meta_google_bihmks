@@ -38,16 +38,12 @@ export default function App() {
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
   // Filter States
-  // Filter States - Priority: URL > LocalStorage > Default
+  // Filter States - Priority: LocalStorage > Default (URL Filters Removed)
   const [selectedFranchise, setSelectedFranchise] = useState<string>(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('franchise')) return params.get('franchise')!;
     return localStorage.getItem('op7_franchise_filter') || '';
   });
 
   const [selectedAccount, setSelectedAccount] = useState<string>(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('account')) return params.get('account')!;
     return localStorage.getItem('op7_account_filter') || '';
   });
 
@@ -69,6 +65,14 @@ export default function App() {
       end: subDays(new Date(), 1)
     };
   });
+
+  // Clean URL parameters on mount
+  useEffect(() => {
+    if (window.location.search) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, []);
 
   // Estabilizar datas para evitar triggers de useEffect desnecessários
   const stableDates = useMemo(() => {
@@ -180,19 +184,8 @@ export default function App() {
     // They are stable dependencies that only change when permissions actually change (due to AuthProvider stability fix).
   }, [userProfile?.id, userProfile?.role, stableDates.startText, stableDates.endText, selectedFranchise, selectedAccount, franchiseString, accountString]);
 
-  // Sync URL with filters
+  // Sync Filters to LocalStorage (URL Sync Removed)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (selectedFranchise) params.set('franchise', selectedFranchise);
-    else params.delete('franchise');
-
-    if (selectedAccount) params.set('account', selectedAccount);
-    else params.delete('account');
-
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, '', newUrl);
-
-    // Save to LocalStorage
     localStorage.setItem('op7_franchise_filter', selectedFranchise);
     localStorage.setItem('op7_account_filter', selectedAccount);
   }, [selectedFranchise, selectedAccount]);

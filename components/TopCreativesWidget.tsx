@@ -40,7 +40,7 @@ export const TopCreativesWidget: React.FC<Props> = ({ data }) => {
 
     data.forEach(row => {
         // Use Image URL or Ad Title as unique identifier fallback, but prefer ID
-        const id = row.ad_id || row.ad_image_url || row.ad_name || `unknown-${Math.random()}`;
+        const id = String(row.ad_id || row.ad_image_url || row.ad_name || `unknown-${Math.random()}`);
         
         const current = adMap.get(id) || {
             id,

@@ -37,9 +37,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   assignedAccountIds
 }) => {
 
-  // 1. Prepare Franchise Options from available list
+  // 1. Prepare Franchise Options from available list (Deduplicated)
   const franchiseOptions = useMemo(() => {
-    return availableFranchises.map(f => ({ value: f.name, label: f.name }));
+    // Unique by name to prevent duplicate keys
+    const unique = new Map();
+    availableFranchises.forEach(f => {
+      if (!unique.has(f.name)) {
+        unique.set(f.name, { value: f.name, label: f.name });
+      }
+    });
+    return Array.from(unique.values());
   }, [availableFranchises]);
 
   // 2. Extract Clients (Filtered by Franchisee)
