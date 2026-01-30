@@ -1,7 +1,7 @@
 {
-  "name": "OP7 Performance Dashboard",
-  "short_name": "OP7 Dashboard",
-  "description": "Dashboard de performance para gestão de campanhas de marketing digital",
+  "name": "Bihmks AI-First",
+  "short_name": "Bihmks",
+  "description": "Plataforma AI-First para gestão de performance.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8FAFC",
@@ -11,7 +11,7 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/logo_op7_azul.svg",
+      "src": "https://docs.qozt.com.br/logo/bihmks/logo_bihmks.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

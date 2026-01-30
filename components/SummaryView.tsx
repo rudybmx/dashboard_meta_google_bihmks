@@ -227,7 +227,7 @@ export const SummaryView: React.FC<Props> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData.map(row => {
+            {sortedData.map((row, index) => {
               const rowResults = row.compras + row.leads + row.conversas;
               const cpl = row.leads > 0 ? row.investimento / row.leads : 0;
               const cpc = row.clicks > 0 ? row.investimento / row.clicks : 0;
@@ -241,8 +241,10 @@ export const SummaryView: React.FC<Props> = ({
                 ? row.nome_conta
                 : `Conta ${accId}`;
 
+              const rowKey = accId !== 'ID Desconhecido' ? accId : `unknown-${index}`;
+
               return (
-                <TableRow key={accId} className="hover:bg-slate-50">
+                <TableRow key={rowKey} className="hover:bg-slate-50">
                   <TableCell className="font-bold text-slate-800">
                     <div className="line-clamp-1" title={accountName}>{accountName}</div>
                     <div className="text-[10px] text-slate-400 font-normal font-mono">{accId}</div>

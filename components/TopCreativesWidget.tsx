@@ -46,7 +46,8 @@ export const TopCreativesWidget: React.FC<Props> = ({ data }) => {
             id,
             name: row.ad_title || row.ad_name || 'Anúncio sem título', // Prefer explicit ad_title
             imageUrl: row.ad_image_url,
-            link: row.ad_post_link,
+            // Fallback: Post Link -> Destination URL -> "https://facebook.com/ads/library/?id={ad_id}" (if ad_id exists)
+            link: row.ad_post_link || row.ad_destination_url || (row.ad_id ? `https://facebook.com/ads/library/?id=${row.ad_id}` : undefined),
             spend: 0,
             leads: 0,
             purchases: 0,
@@ -201,16 +202,26 @@ export const TopCreativesWidget: React.FC<Props> = ({ data }) => {
                             <TableCell>
                                 <div className="flex flex-col gap-1">
                                     {ad.link ? (
-                                        <a 
-                                            href={ad.link} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="font-semibold text-sm text-slate-700 hover:text-indigo-600 line-clamp-2 max-w-[220px] leading-snug transition-colors"
-                                            title={ad.name}
-                                        >
-                                            {ad.name}
-                                            <ExternalLink size={10} className="inline ml-1 opacity-50" />
-                                        </a>
+                                        <div className="flex items-center gap-2">
+                                            <a 
+                                                href={ad.link} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="font-semibold text-sm text-slate-700 hover:text-indigo-600 line-clamp-2 max-w-[200px] leading-snug transition-colors"
+                                                title={ad.name}
+                                            >
+                                                {ad.name}
+                                            </a>
+                                            <a 
+                                                href={ad.link}
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="shrink-0 p-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
+                                                title="Ver Anúncio"
+                                            >
+                                                <ExternalLink size={12} />
+                                            </a>
+                                        </div>
                                     ) : (
                                         <span className="font-semibold text-sm text-slate-700 line-clamp-2 max-w-[220px] leading-snug" title={ad.name}>{ad.name}</span>
                                     )}
