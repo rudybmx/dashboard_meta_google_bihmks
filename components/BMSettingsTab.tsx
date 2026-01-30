@@ -26,8 +26,6 @@ import { MetaAdAccount, Franchise } from '../types';
 import { useSettingsData } from '../context/SettingsDataContext';
 
 const BMSettingsTabComponent: React.FC = () => {
-    console.log('[BMSettingsTab] 🔄 Renderizando Aba de Contas');
-
     const {
         accounts: data,
         franchises,

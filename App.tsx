@@ -1,26 +1,29 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { MobileNav } from './components/layout/MobileNav';
 import { DashboardHeader } from './components/DashboardHeader';
-import { ManagerialView } from './components/ManagerialView';
-import { SettingsView } from './components/SettingsView';
-import { CampaignsView } from './components/CampaignsView';
-import { CreativesView } from './components/CreativesView';
 import { LoginView } from './components/LoginView';
-import { DashboardOverview } from './components/DashboardOverview';
-import { DemographicsGeoView } from './components/DemographicsGeoView';
-import { AdsTableView } from './components/AdsTableView';
-import { SummaryView } from './components/SummaryView';
-import { PlanningDashboardView } from './components/PlanningDashboardView';
 import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts } from './services/supabaseService';
 import { CampaignData, Franchise, SummaryReportRow } from './types';
 import { Loader2, Shield, AlertTriangle } from 'lucide-react';
 import { RangeValue } from './components/ui/calendar';
 import { subDays } from 'date-fns';
 import { useAuth } from './src/auth/useAuth';
+import { ViewLoader } from './components/ViewLoader';
+import { logger } from './lib/logger';
+
+// Lazy load views for code splitting
+const SummaryView = lazy(() => import('./components/SummaryView'));
+const ManagerialView = lazy(() => import('./components/ManagerialView'));
+const DashboardOverview = lazy(() => import('./components/DashboardOverview'));
+const CampaignsView = lazy(() => import('./components/CampaignsView'));
+const CreativesView = lazy(() => import('./components/CreativesView'));
+const DemographicsGeoView = lazy(() => import('./components/DemographicsGeoView'));
+const AdsTableView = lazy(() => import('./components/AdsTableView'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
+const PlanningDashboardView = lazy(() => import('./components/PlanningDashboardView'));
 
 export default function App() {
-  console.log('[App.tsx] 🟢 App renderizando');
 
   const { session, userProfile, loading: authLoading, error: authError, logout } = useAuth();
 
@@ -57,7 +60,7 @@ export default function App() {
           end: new Date(parsed.end)
         };
       } catch (e) {
-        console.error("Failed to parse saved dates", e);
+        logger.error("Failed to parse saved dates", e);
       }
     }
     return {
@@ -93,15 +96,12 @@ export default function App() {
       ? userProfile.assigned_franchise_ids
       : [];
 
-    console.log('[Filter/App] Role:', userProfile.role);
-    console.log('[Filter/App] Assigned Values:', assignedIds);
-
     // Tentamos filtrar por ID ou NAME para ser resiliente
     const filtered = officialFranchises.filter(f =>
       assignedIds.includes(f.id) || assignedIds.includes(f.name)
     );
 
-    console.log('[Filter/App] Result:', filtered);
+    logger.debug('Franchise filter applied:', { role: userProfile.role, count: filtered.length });
     return filtered;
   }, [userProfile, officialFranchises]);
 
@@ -126,7 +126,7 @@ export default function App() {
 
     // If user has restricted access by franchise, wait for franchises to be calculated
     if (!isAdmin && !isClient && !franchiseString) {
-      console.log('[App] Waiting for franchise restrictions to load...');
+      logger.debug('Waiting for franchise restrictions to load...');
       return;
     }
 
@@ -143,14 +143,10 @@ export default function App() {
         const normalizedAccountId = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
         const accountIds = normalizedAccountId ? [normalizedAccountId] : (accountString ? accountString.split(',') : []);
 
-        console.log('[App] Loading data with UI filters:', {
+        logger.info('Loading dashboard data:', { 
           role: userProfile.role,
-          selectedFranchise,
-          selectedAccount,
-          normalizedAccountId,
-          franchises: franchiseNames,
-          accounts: accountIds,
-          dates: { start, end }
+          franchiseCount: franchiseNames.length,
+          accountCount: accountIds.length 
         });
 
         const [campaignResult, kpiResult, summaryResult, allAccounts] = await Promise.all([
@@ -171,7 +167,7 @@ export default function App() {
         setIsDataLoaded(true);
 
       } catch (err) {
-        console.error("Critical Failure:", err);
+        logger.error("Critical data loading failure:", err);
       } finally {
         setLoading(false);
       }
@@ -239,7 +235,7 @@ export default function App() {
         const list = await fetchFranchises();
         setOfficialFranchises(list);
       } catch (e) {
-        console.error("Failed to load franchises", e);
+        logger.error("Failed to load franchises", e);
       }
     };
     loadFranchises();
@@ -342,52 +338,53 @@ export default function App() {
           <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
             {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
 
-            {activeView === 'summary' && (
-              <SummaryView
-                data={filteredData}
-                selectedFranchisee={selectedFranchise}
-                selectedClient={selectedAccount}
-                dateRange={dateRange}
-                allowedFranchises={availableFranchises.map(f => f.name)}
-                allowedAccounts={userProfile?.assigned_account_ids}
-                externalSummaryData={summaryData}
-                externalLoading={loading && !isDataLoaded}
-              />
-            )}
-            {activeView === 'planning' && <PlanningDashboardView allowedFranchises={availableFranchises.map(f => f.name)} userRole={userProfile?.role} />}
-            {activeView === 'dashboard' && (
-              <ManagerialView
-                data={filteredData}
-                comparisonData={comparisonData}
-                kpiData={kpiRpcData}
-                selectedFranchisee={selectedFranchise}
-                selectedClient={selectedAccount}
-                externalTotalBalance={currentFilteredBalance}
-              />
-            )}
-            {activeView === 'executive' && <DashboardOverview data={filteredData} />}
-            {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
-            {activeView === 'ads' && (
-              <AdsTableView
-                data={filteredData}
-                onCampaignClick={(campaignName) => {
-                  setActiveView('campaigns');
-                  // Note: CampaignsView will need to be updated to accept and use this filter
-                }}
-              />
-            )}
-            {activeView === 'creatives' && <CreativesView data={filteredData} />}
-            {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
-            {activeView === 'settings' && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : activeView === 'settings' && (
-              <div className="flex h-[60vh] w-full items-center justify-center">
-                <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
-                  <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />
-                  <h3 className="text-xl font-bold text-slate-900">Acesso Restrito</h3>
-                  <p className="text-slate-500">Seu perfil ({userProfile?.role}) não possui permissão para acessar as configurações.</p>
-                  <button onClick={() => setActiveView('dashboard')} className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg">Voltar ao Dashboard</button>
+            <Suspense fallback={<ViewLoader />}>
+              {activeView === 'summary' && (
+                <SummaryView
+                  data={filteredData}
+                  selectedFranchisee={selectedFranchise}
+                  selectedClient={selectedAccount}
+                  dateRange={dateRange}
+                  allowedFranchises={availableFranchises.map(f => f.name)}
+                  allowedAccounts={userProfile?.assigned_account_ids}
+                  externalSummaryData={summaryData}
+                  externalLoading={loading && !isDataLoaded}
+                />
+              )}
+              {activeView === 'planning' && <PlanningDashboardView allowedFranchises={availableFranchises.map(f => f.name)} userRole={userProfile?.role} />}
+              {activeView === 'dashboard' && (
+                <ManagerialView
+                  data={filteredData}
+                  comparisonData={comparisonData}
+                  kpiData={kpiRpcData}
+                  selectedFranchisee={selectedFranchise}
+                  selectedClient={selectedAccount}
+                  externalTotalBalance={currentFilteredBalance}
+                />
+              )}
+              {activeView === 'executive' && <DashboardOverview data={filteredData} />}
+              {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
+              {activeView === 'ads' && (
+                <AdsTableView
+                  data={filteredData}
+                  onCampaignClick={(campaignName) => {
+                    setActiveView('campaigns');
+                  }}
+                />
+              )}
+              {activeView === 'creatives' && <CreativesView data={filteredData} />}
+              {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
+              {activeView === 'settings' && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : activeView === 'settings' && (
+                <div className="flex h-[60vh] w-full items-center justify-center">
+                  <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
+                    <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />
+                    <h3 className="text-xl font-bold text-slate-900">Acesso Restrito</h3>
+                    <p className="text-slate-500">Seu perfil ({userProfile?.role}) não possui permissão para acessar as configurações.</p>
+                    <button onClick={() => setActiveView('dashboard')} className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg">Voltar ao Dashboard</button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </Suspense>
 
             <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} OP7 Performance.</footer>
           </div>

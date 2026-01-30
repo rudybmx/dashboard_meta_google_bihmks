@@ -442,3 +442,5 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
         </div>
     );
 };
+
+export default PlanningDashboardView;

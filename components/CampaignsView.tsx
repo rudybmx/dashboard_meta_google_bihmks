@@ -544,3 +544,5 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
     </div>
   );
 };
+
+export default CampaignsView;

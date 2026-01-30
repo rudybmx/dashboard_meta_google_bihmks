@@ -115,7 +115,6 @@ export const SummaryView: React.FC<Props> = ({
         const franchises = stableAllowedFranchises ? stableAllowedFranchises.split(',') : undefined;
         const accounts = stableAllowedAccounts ? stableAllowedAccounts.split(',') : undefined;
 
-        console.log('[SummaryView] Loading report with filters:', { start, end, franchises, accounts });
         const report = await fetchSummaryReport(start, end, franchises, accounts);
 
         if (mounted) {
@@ -284,3 +283,5 @@ export const SummaryView: React.FC<Props> = ({
     </div>
   );
 };
+
+export default SummaryView;

@@ -290,3 +290,5 @@ export const DemographicsGeoView: React.FC<Props> = ({ data }) => {
     </div>
   );
 };
+
+export default DemographicsGeoView;

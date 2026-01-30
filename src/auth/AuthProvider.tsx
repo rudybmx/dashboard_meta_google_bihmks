@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback } fro
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabaseService';
 import { UserProfile, UserRole } from './types';
+import { logger } from '../../lib/logger';
 
 export interface AuthContextType {
     session: Session | null;
@@ -28,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(true);
             setError(null);
 
-            console.log('[Auth] Iniciando verificação de sessão...');
+            logger.info('Auth initialization started');
 
             // 1. Buscar sessão com timeout de 3 segundos
             let currentSession: Session | null = null;
@@ -36,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const getSessionPromise = supabase.auth.getSession();
                 const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) =>
-                    setTimeout(() => reject(new Error('Session check timeout')), 3000)
+                    setTimeout(() => reject(new Error('Session check timeout')), 10000)
                 );
 
                 const result = await Promise.race([getSessionPromise, timeoutPromise]);
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentSession = result.data.session;
             } catch (err: any) {
                 if (err.message === 'Session check timeout') {
-                    console.warn('[Auth] Timeout ao buscar sessão');
+                    logger.warn('Session check timeout');
                     if (isMounted) {
                         setError('Conexão lenta. Tente novamente.');
                         setLoading(false);
@@ -61,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     err.message?.includes('Invalid Refresh Token') ||
                     err.message?.includes('Refresh Token Not Found')
                 ) {
-                    console.warn('[Auth] Token expirado. Limpando...');
+                    logger.warn('Token expired, clearing session');
                     await supabase.auth.signOut();
                     localStorage.clear();
                     if (isMounted) {
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             // 2. Se não há sessão, parar aqui
             if (!currentSession?.user?.email) {
-                console.log('[Auth] Nenhuma sessão ativa');
+                logger.info('No active session');
                 if (isMounted) {
                     setSession(null);
                     setUserProfile(null);
@@ -87,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             // 3. Sessão existe - buscar perfil
-            console.log('[Auth] Sessão encontrada:', currentSession.user.email);
+            logger.info('Session found, fetching profile');
 
             try {
                 const { data: profileData, error: profileError } = await supabase
@@ -113,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
 
                 if (!profileData) {
-                    console.error('[Auth] Perfil não encontrado no banco de dados para:', currentSession.user.email);
+                    logger.error('Profile not found for user:', currentSession.user.email);
                     if (isMounted) {
                         setError('Seu perfil de usuário não foi encontrado. Se você acabou de criar a conta, aguarde alguns segundos ou verifique se o administrador executou o script de permissões.');
                         // Deslogar usuário sem perfil para evitar loop de carregamento
@@ -138,10 +139,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     created_at: pData.created_at,
                 };
 
-                console.log('[Auth] Perfil processado:', {
+                logger.info('Profile processed:', {
                     email: profile.email,
-                    role: profile.role,
-                    franchises: profile.assigned_franchise_ids
+                    role: profile.role
                 });
 
                 if (isMounted) {
@@ -157,16 +157,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             JSON.stringify(prev.assigned_franchise_ids) === JSON.stringify(profile.assigned_franchise_ids);
 
                         if (isSame) {
-                            console.log('[Auth] Perfil idêntico ao atual. Mantendo referência para estabilidade.');
+                            logger.debug('Profile unchanged, maintaining reference');
                             return prev;
                         }
 
-                        console.log('[Auth] ✅ Autenticação completa (Novo Perfil):', profile.email);
+                        logger.info('Authentication complete:', profile.email);
                         return profile;
                     });
                 }
             } catch (profileErr: any) {
-                console.error('[Auth] Erro ao buscar perfil:', profileErr);
+                logger.error('Error fetching profile:', profileErr);
                 if (isMounted) {
                     setError('Erro ao buscar informações do usuário. Tente novamente.');
                     await supabase.auth.signOut();
@@ -175,7 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
         } catch (err: any) {
-            console.error('[Auth] Erro crítico:', err);
+            logger.error('Critical auth error:', err);
             if (isMounted) {
                 setError(err.message || 'Erro de autenticação');
                 await supabase.auth.signOut();
@@ -201,17 +201,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             async (event, newSession) => {
                 if (!isMounted) return;
 
-                console.log('[Auth] Evento:', event);
+                logger.debug('Auth event:', event);
 
                 // Ignorar evento inicial (já tratado por initializeAuth)
                 if (event === 'INITIAL_SESSION') {
-                    console.log('[Auth] Ignorando INITIAL_SESSION (já processado)');
+                    logger.debug('Ignoring INITIAL_SESSION (already processed)');
                     return;
                 }
 
                 // Logout
                 if (event === 'SIGNED_OUT') {
-                    console.log('[Auth] Usuário deslogado');
+                    logger.info('User signed out');
                     setSession(null);
                     setUserProfile(null);
                     setLoading(false);
@@ -220,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                 // Login ou refresh bem-sucedido
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    console.log('[Auth] Atualizando sessão após evento:', event);
+                    logger.info('Session updated:', event);
                     setSession(newSession);
                     // Re-executar inicialização para pegar perfil atualizado
                     if (newSession) {
@@ -249,7 +249,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUserProfile(null);
             setError(null);
         } catch (err: any) {
-            console.error('[Auth] Erro ao deslogar:', err);
+            logger.error('Error during logout:', err);
             setError('Erro ao deslogar');
         }
     };

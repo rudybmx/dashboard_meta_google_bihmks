@@ -108,3 +108,5 @@ export const SettingsView: React.FC<{ userRole?: string }> = ({ userRole }) => {
         </SettingsDataProvider>
     );
 };
+
+export default SettingsView;

@@ -103,9 +103,6 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
   // Calculate KPIS (Current vs Previous)
   // Logic: Use RPC kpiData if available (Backend Source of Truth), otherwise fallback to frontend calc (legacy/charts)
   const kpis = useMemo(() => {
-    console.log("DEBUG: ManagerialView kpiData prop:", kpiData);
-    console.log("DEBUG: ManagerialView comparisonData prop:", comparisonData?.length);
-
     // Helper for deltas
     const getDelta = (curr: number, past: number) => {
         if (past === 0) return 0;
@@ -352,3 +349,5 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
     </div>
   );
 };
+
+export default ManagerialView;

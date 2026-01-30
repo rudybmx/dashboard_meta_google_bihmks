@@ -388,3 +388,5 @@ export const CreativesView: React.FC<Props> = ({ data }) => {
     </div>
   );
 };
+
+export default CreativesView;

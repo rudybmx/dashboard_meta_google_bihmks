@@ -4,6 +4,7 @@ import { CampaignData, SummaryReportRow } from '../types';
 import { format } from 'date-fns';
 import { MOCK_DATA } from '../constants';
 import { Database } from '../types/database.types';
+import { logger } from '../lib/logger';
 
 // Tipos auxiliares para evitar 'any'
 type ViewRow = Database['public']['Views']['vw_dashboard_unified']['Row'];
@@ -66,13 +67,13 @@ export const fetchUserProfile = async (email: string | undefined) => {
     // 1. Cache Check (60 seconds)
     const cached = profileCache.get(email);
     if (cached && (Date.now() - cached.timestamp < 60000)) {
-        console.log("DEBUG: Using cached profile for", email);
+        logger.debug('Using cached profile for', email);
         return cached.data;
     }
 
     // 2. Deduplication Check (Ongoing promise)
     if (profileFetchPromises.has(email)) {
-        console.log("DEBUG: Reusing existing profile fetch for", email);
+        logger.debug('Reusing existing profile fetch for', email);
         return profileFetchPromises.get(email);
     }
 
@@ -85,7 +86,7 @@ export const fetchUserProfile = async (email: string | undefined) => {
                 .maybeSingle();
 
             if (error) {
-                console.warn("Error fetching perfil_acesso:", error);
+                logger.warn('Error fetching perfil_acesso:', error);
                 return null;
             }
 
@@ -107,7 +108,7 @@ export const fetchUserProfile = async (email: string | undefined) => {
             profileCache.set(email, { data: result, timestamp: Date.now() });
             return result;
         } catch (err) {
-            console.error("Exception fetching profile:", err);
+            logger.error('Exception fetching profile:', err);
             return null;
         } finally {
             profileFetchPromises.delete(email);
@@ -274,7 +275,7 @@ export const fetchCampaignData = async (
         };
 
     } catch (err: any) {
-        console.error('Falha ao buscar dados do Supabase:', err);
+        logger.error('Failed to fetch campaign data:', err);
         return { current: [], previous: [], isMock: true, error: err.message || 'Erro desconhecido' };
     }
 };
@@ -303,14 +304,14 @@ export const fetchKPIComparison = async (
         });
 
         if (error) {
-            console.error("KPI RPC Error:", error);
+            logger.error('KPI RPC Error:', error);
             return null;
         }
 
         return data[0]; 
 
     } catch (err) {
-        console.error("KPI Fetch Failed:", err);
+        logger.error('KPI Fetch Failed:', err);
         return null;
     }
 };
@@ -335,14 +336,14 @@ export const fetchSummaryReport = async (
         });
 
         if (error) {
-            console.error("Summary Report RPC Error:", error);
+            logger.error('Summary Report RPC Error:', error);
             throw error;
         }
 
         return data || [];
 
     } catch (err) {
-        console.error("Summary Fetch Failed:", err);
+        logger.error('Summary Fetch Failed:', err);
         return [];
     }
 };
@@ -398,7 +399,7 @@ export const fetchMetaAccounts = async () => {
         .order('nome_original', { ascending: true });
 
     if (error) {
-        console.error('Error fetching meta accounts:', error);
+        logger.error('Error fetching meta accounts:', error);
         return [];
     }
 
@@ -449,7 +450,7 @@ export const fetchFranchises = async () => {
         .order('nome');
 
     if (error) {
-        console.error('Error fetching franchises:', error);
+        logger.error('Error fetching franchises:', error);
         return [];
     }
 
@@ -466,7 +467,7 @@ export const createFranchise = async (name: string) => {
     });
 
     if (error) {
-        console.error("Error creating franchise:", error);
+        logger.error('Error creating franchise:', error);
         throw error;
     }
 
@@ -478,13 +479,13 @@ export const createFranchise = async (name: string) => {
 };
 
 export const deleteFranchise = async (id: string) => {
-    console.log("DEBUG: Using RPC for Franchise Hard Delete");
+    logger.debug('Using RPC for Franchise Hard Delete');
     const { error } = await (supabase.rpc as any)('delete_franchise_unit', {
         p_id: id
     });
 
     if (error) {
-        console.error("Error deleting franchise:", error);
+        logger.error('Error deleting franchise:', error);
         throw error;
     }
 };
@@ -500,7 +501,7 @@ export const fetchCategories = async () => {
         .order('nome_categoria', { ascending: true });
 
     if (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories:', error);
         return [];
     }
     return data || [];
@@ -559,7 +560,7 @@ export const fetchPlannings = async (accountId?: string) => {
     const { data, error } = await query;
 
     if (error) {
-        console.error('Error fetching plannings:', error);
+        logger.error('Error fetching plannings:', error);
         return [];
     }
     return data || [];

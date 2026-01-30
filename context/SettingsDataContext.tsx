@@ -50,8 +50,6 @@ interface SettingsDataProviderProps {
 }
 
 export const SettingsDataProvider: React.FC<SettingsDataProviderProps> = ({ children }) => {
-  console.log('[SettingsDataProvider] 🔵 Provider renderizando');
-
   const [accounts, setAccounts] = useState<MetaAdAccount[]>([]);
   const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);

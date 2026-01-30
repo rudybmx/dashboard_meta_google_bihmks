@@ -495,3 +495,5 @@ export const AdsTableView: React.FC<Props> = ({ data, onCampaignClick }) => {
     </div>
   );
 };
+
+export default AdsTableView;

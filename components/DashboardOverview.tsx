@@ -275,6 +275,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ data }) =>
   );
 };
 
+export default DashboardOverview;
+
 // Sub-component: StatCard
 const StatCard = ({ title, value, subtext, icon: Icon, iconColor, bgIcon }: any) => (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start justify-between hover:shadow-md transition-all">
