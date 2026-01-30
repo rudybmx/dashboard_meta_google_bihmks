@@ -262,7 +262,22 @@ export const fetchCampaignData = async (
                 msgs_novos_contatos: row.msgs_novos_contatos || 0,
                 msgs_profundidade_2: row.msgs_profundidade_2 || 0,
                 msgs_profundidade_3: row.msgs_profundidade_3 || 0,
+                // Demographics / Targeting Mapping
                 target_plataformas: row.target_plataformas || '',
+                target_interesses: row.target_interesses || undefined,
+                target_familia: row.target_familia || undefined,
+                target_comportamentos: row.target_comportamentos || undefined,
+                target_publicos_custom: row.target_publicos_custom || undefined,
+                target_local_1: row.target_local_1 || undefined,
+                target_local_2: row.target_local_2 || undefined,
+                target_local_3: row.target_local_3 || undefined,
+                target_tipo_local: row.target_tipo_local || undefined,
+                target_brand_safety: row.target_brand_safety || undefined,
+                target_posicao_fb: row.target_posicao_fb || undefined,
+                target_posicao_ig: row.target_posicao_ig || undefined,
+                target_idade_min: row.target_idade_min || undefined,
+                target_idade_max: row.target_idade_max || undefined,
+
                 ad_image_url: imageUrl,
                 ad_destination_url: row.ad_destination_url || undefined,
                 ad_post_link: row.ad_post_link || undefined,
@@ -303,7 +318,7 @@ export const fetchKPIComparison = async (
             p_end_date: formatDateForDB(endDate),
             p_prev_start_date: formatDateForDB(prevStart),
             p_prev_end_date: formatDateForDB(prevEnd),
-            p_franchise_filter: (finalFranchisesNames && finalFranchisesNames.length > 0) ? finalFranchisesNames : null,
+            p_franchise_filter: (resolvedIds && resolvedIds.length > 0) ? resolvedIds : null,
             p_account_filter: (finalAccounts && finalAccounts.length > 0) ? finalAccounts : null
         });
 
@@ -335,7 +350,7 @@ export const fetchSummaryReport = async (
         const { data, error } = await (supabase.rpc as any)('get_managerial_data', {
             p_start_date: format(startDate, 'yyyy-MM-dd'),
             p_end_date: format(endDate, 'yyyy-MM-dd'),
-            p_franchise_filter: (finalFranchiseFilter && finalFranchiseFilter.length > 0) ? finalFranchiseFilter : null,
+            p_franchise_filter: (resolvedIds && resolvedIds.length > 0) ? resolvedIds : null,
             p_account_filter: (finalAccountFilter && finalAccountFilter.length > 0) ? finalAccountFilter : null
         });
 
