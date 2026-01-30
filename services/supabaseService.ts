@@ -303,7 +303,7 @@ export const fetchKPIComparison = async (
             p_end_date: formatDateForDB(endDate),
             p_prev_start_date: formatDateForDB(prevStart),
             p_prev_end_date: formatDateForDB(prevEnd),
-            p_franchise_filter: (resolvedIds && resolvedIds.length > 0) ? resolvedIds : null,
+            p_franchise_filter: (finalFranchisesNames && finalFranchisesNames.length > 0) ? finalFranchisesNames : null,
             p_account_filter: (finalAccounts && finalAccounts.length > 0) ? finalAccounts : null
         });
 
@@ -335,7 +335,7 @@ export const fetchSummaryReport = async (
         const { data, error } = await (supabase.rpc as any)('get_managerial_data', {
             p_start_date: format(startDate, 'yyyy-MM-dd'),
             p_end_date: format(endDate, 'yyyy-MM-dd'),
-            p_franchise_filter: (resolvedIds && resolvedIds.length > 0) ? resolvedIds : null,
+            p_franchise_filter: (finalFranchiseFilter && finalFranchiseFilter.length > 0) ? finalFranchiseFilter : null,
             p_account_filter: (finalAccountFilter && finalAccountFilter.length > 0) ? finalAccountFilter : null
         });
 
