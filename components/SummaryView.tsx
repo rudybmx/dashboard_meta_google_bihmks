@@ -134,6 +134,9 @@ export const SummaryView: React.FC<Props> = ({
   }, [selectedFranchisee, selectedClient, startText, endText, stableAllowedFranchises, stableAllowedAccounts]);
 
   const filteredList = useMemo(() => {
+    // RBAC: Require account selection - no data shown without specific account
+    if (!selectedClient) return [];
+    
     return summaryData.filter(row => {
       // UI Filter: Franchise
       if (selectedFranchisee && row.franquia !== selectedFranchisee) return false;

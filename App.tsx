@@ -160,7 +160,23 @@ export default function App() {
         setFormattedComparisonData(campaignResult.previous);
         setKpiRpcData(kpiResult);
         setSummaryData(summaryResult);
-        setMetaAccounts(allAccounts);
+        
+        // RBAC: Filter accounts by user's available franchises
+        // Admins/executives see all accounts; other roles see only their franchise accounts
+        const isAdminOrExecutive = userProfile.role === 'admin' || userProfile.role === 'executive';
+        const allowedFranchiseNames = availableFranchises.map(f => f.name);
+        
+        const filteredAccounts = isAdminOrExecutive 
+          ? allAccounts 
+          : allAccounts.filter(acc => allowedFranchiseNames.includes(acc.franchise_id));
+        
+        logger.debug('Accounts filtered by franchise:', { 
+          total: allAccounts.length, 
+          filtered: filteredAccounts.length,
+          allowedFranchises: allowedFranchiseNames 
+        });
+        
+        setMetaAccounts(filteredAccounts);
         setIsDemoMode(campaignResult.isMock);
         if (campaignResult.isMock) setConnectionError(campaignResult.error);
 
@@ -245,6 +261,9 @@ export default function App() {
   useEffect(() => { setSelectedAccount(''); }, [selectedFranchise]);
 
   const filteredData = useMemo(() => {
+    // RBAC: Require account selection - no data shown without specific account
+    if (!selectedAccount) return [];
+    
     return data.filter(d => {
       const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
 
@@ -260,6 +279,9 @@ export default function App() {
   }, [selectedFranchise, selectedAccount, data]);
 
   const comparisonData = useMemo(() => {
+    // RBAC: Require account selection - no data shown without specific account
+    if (!selectedAccount) return [];
+    
     return formattedComparisonData.filter(d => {
       const matchFranchise = !selectedFranchise || d.franqueado === selectedFranchise;
 
@@ -356,10 +378,10 @@ export default function App() {
                 <ManagerialView
                   data={filteredData}
                   comparisonData={comparisonData}
-                  kpiData={kpiRpcData}
+                  kpiData={selectedAccount ? kpiRpcData : null}
                   selectedFranchisee={selectedFranchise}
                   selectedClient={selectedAccount}
-                  externalTotalBalance={currentFilteredBalance}
+                  externalTotalBalance={selectedAccount ? currentFilteredBalance : 0}
                 />
               )}
               {activeView === 'executive' && <DashboardOverview data={filteredData} />}

@@ -43,6 +43,12 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
      // Skip internal load if external data is provided
      if (typeof externalTotalBalance === 'number') return;
 
+     // RBAC: Require account selection - no balance without specific account
+     if (!selectedClient) {
+       setTotalBalance(0);
+       return;
+     }
+
      let mounted = true;
      const loadBalance = async () => {
         try {
@@ -66,7 +72,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
 
      loadBalance();
      return () => { mounted = false; };
-  }, [selectedFranchisee, selectedClient]);
+  }, [selectedFranchisee, selectedClient, externalTotalBalance]);
   
   // Aggregate Weekly Data
   const weeklyData = useMemo(() => {
@@ -110,14 +116,19 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
     };
 
     // 1. IF RPC DATA IS AVAILABLE -> USE IT (Fast & Accurate)
+    // BUT Override Leads with client-side calculation to match Table/Grid view which uses 'msgs_iniciadas'
     if (kpiData) {
-         // Calculate Derived Metrics
-         const cpl = kpiData.current_leads > 0 ? kpiData.current_spend / kpiData.current_leads : 0;
-         const prevCpl = kpiData.prev_leads > 0 ? kpiData.prev_spend / kpiData.prev_leads : 0;
+         // Force Calc Leads from Data Prop (Source of Truth for Table)
+         const calculatedLeads = data.reduce((sum, d) => sum + (d.msgs_iniciadas || 0), 0);
+         const calculatedPrevLeads = comparisonData.reduce((sum, d) => sum + (d.msgs_iniciadas || 0), 0);
+
+         // Calculate Derived Metrics with NEW Leads value
+         const cpl = calculatedLeads > 0 ? kpiData.current_spend / calculatedLeads : 0;
+         const prevCpl = calculatedPrevLeads > 0 ? kpiData.prev_spend / calculatedPrevLeads : 0;
          
          const current = {
              totalSpend: kpiData.current_spend,
-             totalLeads: kpiData.current_leads,
+             totalLeads: calculatedLeads, // OVERRIDE
              totalPurchases: kpiData.current_sales,
              totalImpressions: kpiData.current_impressions,
              totalClicks: kpiData.current_clicks,
@@ -127,7 +138,7 @@ export const ManagerialView: React.FC<Props> = ({ data, comparisonData = [], kpi
          
          const prev = {
              totalSpend: kpiData.prev_spend,
-             totalLeads: kpiData.prev_leads,
+             totalLeads: calculatedPrevLeads, // OVERRIDE
              totalPurchases: kpiData.prev_sales, 
              cpl: prevCpl
          };

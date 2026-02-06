@@ -132,11 +132,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* 2. Cliente */}
         <div className="w-[220px]">
           <Select
-            placeholder="Todas as Contas"
+            placeholder="Selecione uma Conta"
             value={selectedClient}
             onChange={(e) => setSelectedClient(e.target.value)}
-            options={[{ value: '', label: 'Todas Contas' }, ...clients]}
-            disabled={isLocked && clients.length <= 1} // Only disable if locked and single client
+            options={clients}
           />
         </div>
 
