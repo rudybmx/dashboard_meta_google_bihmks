@@ -10,7 +10,9 @@ import {
   Chrome,
   ExternalLink,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageCircle,
+  Network
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button-1";
@@ -50,7 +52,7 @@ interface CampaignHierarchy {
   campaign_name: string;
   account_name: string;
   objective: string;
-  platform: string;
+  platforms: Set<string>;
   spend: number;
   impressions: number;
   leads: number;
@@ -75,7 +77,7 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
         campaign_name: row.campaign_name || 'Campanha Desconhecida',
         account_name: row.account_name || '-',
         objective: row.objective || 'Sem Objetivo',
-        platform: row.target_plataformas || 'facebook',
+        platforms: new Set(),
         spend: 0,
         impressions: 0,
         leads: 0,
@@ -87,6 +89,15 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
     }
 
     const campaign = campaigns[campaignKey];
+    
+    // Add platform
+    if (row.target_plataformas) {
+        // Handle comma separated if legacy, but usually it's one per row in granular reports
+        // or a string in summary. We add to Set to ensure uniqueness.
+        campaign.platforms.add(row.target_plataformas.toLowerCase());
+    } else {
+        campaign.platforms.add('facebook'); // Default
+    }
 
     // Find or create adset
     let adset = campaign.adsets.find(a => a.adset_name === adsetKey);
@@ -164,16 +175,18 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
 
 // CSV Export
 const downloadCSV = (data: CampaignHierarchy[]) => {
-  const headers = ["Campanha", "Conjunto", "Anúncio", "Investimento", "Leads", "CPL", "Impressões"];
+  const headers = ["Campanha", "Conjunto", "Anúncio", "Plataformas", "Investimento", "Leads", "CPL", "Impressões"];
   const rows: string[][] = [];
 
   data.forEach(campaign => {
+    const platforms = Array.from(campaign.platforms).join(', ');
     campaign.adsets.forEach(adset => {
       adset.ads.forEach(ad => {
         rows.push([
           `"${campaign.campaign_name.replace(/"/g, '""')}"`,
           `"${adset.adset_name.replace(/"/g, '""')}"`,
           `"${ad.ad_name.replace(/"/g, '""')}"`,
+          `"${platforms}"`,
           ad.spend.toFixed(2),
           ad.leads.toString(),
           ad.cpl.toFixed(2),
@@ -198,24 +211,43 @@ const downloadCSV = (data: CampaignHierarchy[]) => {
 const fmtCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const fmtNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
-// Platform helpers
-const getPlatformIcon = (platform: string) => {
-  if (platform === 'facebook') return <Facebook size={14} className="text-blue-600" />;
-  if (platform === 'instagram') return <Instagram size={14} className="text-pink-600" />;
-  return <Chrome size={14} className="text-green-600" />;
-};
+// Platform Helper Component
+const PlatformIcons = ({ platforms }: { platforms: Set<string> }) => {
+  const hasFacebook = platforms.has('facebook');
+  const hasInstagram = platforms.has('instagram');
+  const hasMessenger = platforms.has('messenger');
+  const hasAudience = platforms.has('audience_network');
+  const hasGoogle = platforms.has('google'); // Future proof
 
-const getPlatformStyle = (platform: string) => {
-  if (platform === 'facebook') return 'bg-blue-50 text-blue-700 border-blue-100';
-  if (platform === 'instagram') return 'bg-pink-50 text-pink-700 border-pink-100';
-  return 'bg-green-50 text-green-700 border-green-100';
-};
-
-const getPlatformName = (platform: string) => {
-  if (platform === 'facebook') return 'Meta (FB)';
-  if (platform === 'instagram') return 'Instagram';
-  if (platform === 'audience_network') return 'Audience Net';
-  return 'Google';
+  return (
+    <div className="flex items-center gap-1.5">
+      {hasFacebook && (
+        <div title="Facebook" className="bg-blue-50 p-1 rounded-full border border-blue-100">
+          <Facebook size={14} className="text-blue-600" />
+        </div>
+      )}
+      {hasInstagram && (
+        <div title="Instagram" className="bg-pink-50 p-1 rounded-full border border-pink-100">
+          <Instagram size={14} className="text-pink-600" />
+        </div>
+      )}
+      {hasMessenger && (
+        <div title="Messenger" className="bg-blue-50 p-1 rounded-full border border-blue-100">
+          <MessageCircle size={14} className="text-blue-500" />
+        </div>
+      )}
+      {hasAudience && (
+        <div title="Audience Network" className="bg-slate-50 p-1 rounded-full border border-slate-200">
+          <Network size={14} className="text-slate-600" />
+        </div>
+      )}
+      {hasGoogle && (
+        <div title="Google" className="bg-green-50 p-1 rounded-full border border-green-100">
+          <Chrome size={14} className="text-green-600" />
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const CampaignsView: React.FC<Props> = ({ data }) => {
@@ -398,10 +430,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", getPlatformStyle(campaign.platform))}>
-                            {getPlatformIcon(campaign.platform)}
-                            {getPlatformName(campaign.platform)}
-                          </span>
+                          <PlatformIcons platforms={campaign.platforms} />
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-slate-700">{fmtCurrency(campaign.spend)}</td>
                         <td className="py-3 px-4 text-right font-bold text-blue-600">{campaign.leads}</td>
