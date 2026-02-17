@@ -90,7 +90,7 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
                 // We need to fetch details (including franchise) to filter securelly
                 const { data: accounts } = await supabase
                     .from('tb_meta_ads_contas')
-                    .select('account_id, franqueado')
+                    .select('account_id, franqueado_id')
                     .eq('categoria_id', selectedCategoryId);
 
                 // --- SECURITY ENFORCEMENT ---
@@ -98,7 +98,7 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
                 const isRestricted = userRole !== 'admin' && userRole !== 'executive';
                 const validAccounts = (accounts || []).filter(acc => {
                     if (!isRestricted) return true;
-                    return allowedFranchises.includes(acc.franqueado || '');
+                    return allowedFranchises.includes(acc.franqueado_id || '');
                 });
 
                 const accountIds = validAccounts.map(a => a.account_id);
