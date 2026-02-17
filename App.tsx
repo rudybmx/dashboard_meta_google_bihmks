@@ -54,7 +54,7 @@ export default function App() {
   */
 
   const [selectedAccount, setSelectedAccount] = useState<string>(() => {
-    return localStorage.getItem('op7_account_filter') || '';
+    return localStorage.getItem('op7_account_filter') || 'ALL';
   });
 
   const [dateRange, setDateRange] = useState<RangeValue | null>(() => {
