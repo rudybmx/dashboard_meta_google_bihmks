@@ -148,7 +148,7 @@ export const LoginView: React.FC = () => {
                              <div className="flex items-center gap-3 mb-6">
                                 <div className="p-3 bg-indigo-50 rounded-2xl">
                                     <div className="w-8 h-8 relative">
-                                        <img src="/logo_op7_azul.svg" alt="Op7 Logo" className="w-full h-full object-contain" />
+                                        <img src="https://docs.qozt.com.br/logo/bihmks/logo_bihmks.svg" alt="Bihmks Logo" className="w-full h-full object-contain" />
                                     </div>
                                 </div>
                                 <span className="font-bold text-slate-400 tracking-widest text-xs uppercase">Welcome Back</span>
@@ -156,7 +156,7 @@ export const LoginView: React.FC = () => {
                              
                              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Dashboards</h1>
                              <p className="text-slate-500">
-                                Op7 Conectando informação com inteligência
+                                Bihmks Conectando informação com inteligência
                              </p>
                         </div>
 
@@ -234,7 +234,7 @@ export const LoginView: React.FC = () => {
                         </form>
                         
                         <div className="text-center">
-                            <span className="text-xs text-slate-400">Problemas no acesso? Contate o suporte Op7.</span>
+                            <span className="text-xs text-slate-400">Problemas no acesso? Contate o suporte Bihmks.</span>
                         </div>
 
                     </div>
@@ -286,7 +286,7 @@ export const LoginView: React.FC = () => {
             
             {/* Footer */}
             <div className="absolute bottom-6 text-slate-400 text-xs font-medium z-10">
-                &copy; 2026 Op7 Performance
+                &copy; 2026 Bihmks Performance
             </div>
         </div>
     );
