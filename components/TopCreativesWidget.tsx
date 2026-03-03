@@ -1,15 +1,15 @@
 import React, { useMemo } from 'react';
 import { CampaignData } from '../types';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardHeader, CardTitle, CardContent } from "@/src/shared/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/shared/ui/table";
 import { ExternalLink, ImageIcon, Trophy, Image as LucideImage } from 'lucide-react';
-import { SafeImage } from './ui/SafeImage';
+import { SafeImage } from '@/src/shared/ui/SafeImage';
 import {
   Dialog,
   DialogContent,
   DialogTrigger,
   DialogTitle
-} from "@/components/ui/dialog";
+} from "@/src/shared/ui/dialog";
 
 import { TopCreative } from '../hooks/useDashboardMetrics';
 

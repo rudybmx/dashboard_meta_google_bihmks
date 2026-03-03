@@ -6,8 +6,8 @@ import {
     PlanningRow
 } from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/shared/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/src/shared/ui/card';
 import { ArrowDown, Loader2, TrendingUp, AlertTriangle } from 'lucide-react';
 import {
     LineChart,

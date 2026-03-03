@@ -6,16 +6,16 @@ import {
     TableHead,
     TableHeader,
     TableRow
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '@/src/shared/ui/table';
+import { Button } from '@/src/shared/ui/button';
+import { Input } from '@/src/shared/ui/input';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger
-} from '@/components/ui/dialog';
+} from '@/src/shared/ui/dialog';
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import {
     fetchCategories,

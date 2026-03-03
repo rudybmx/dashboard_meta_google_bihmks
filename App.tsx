@@ -6,14 +6,15 @@ import { LoginView } from './components/LoginView';
 import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts } from './services/supabaseService';
 import { CampaignData, Franchise, SummaryReportRow } from './types';
 import { Loader2, Shield, AlertTriangle } from 'lucide-react';
-import { RangeValue } from './components/ui/calendar';
+import { RangeValue } from '@/src/shared/ui/calendar';
 import { subDays } from 'date-fns';
 import { useAuth } from './src/auth/useAuth';
 import { ViewLoader } from './components/ViewLoader';
 import { useUserAccess } from './src/auth/useUserAccess';
 import { ResolvedMetaAccount, ResolvedFranchise } from './src/auth/types';
 import { useQuery } from '@tanstack/react-query';
-import { logger } from './lib/logger';
+import { logger } from '@/src/shared/lib/logger';
+import { useFilters } from '@/src/features/filters';
 
 
 // Retry wrapper for lazy imports — handles stale chunk 404s after new deploys
@@ -25,7 +26,7 @@ function lazyWithRetry(importFn: () => Promise<any>) {
       if (!hasReloaded) {
         sessionStorage.setItem('chunk_reload', '1');
         window.location.reload();
-        return new Promise(() => {}); // Never resolves — page will reload
+        return new Promise(() => { }); // Never resolves — page will reload
       }
       sessionStorage.removeItem('chunk_reload');
       throw err; // Let ErrorBoundary handle after 1 retry
@@ -34,8 +35,8 @@ function lazyWithRetry(importFn: () => Promise<any>) {
 }
 
 // Lazy load views for code splitting (with auto-retry on stale chunks)
-const SummaryView = lazyWithRetry(() => import('./components/SummaryView'));
-const ManagerialView = lazyWithRetry(() => import('./components/ManagerialView'));
+const SummaryView = lazyWithRetry(() => import('./src/pages/SummaryView'));
+const ManagerialView = lazyWithRetry(() => import('./src/pages/ManagerialView'));
 const DashboardOverview = lazyWithRetry(() => import('./components/DashboardOverview'));
 const CampaignsView = lazyWithRetry(() => import('./components/CampaignsView'));
 const CreativesView = lazyWithRetry(() => import('./components/CreativesView'));
@@ -43,6 +44,7 @@ const DemographicsGeoView = lazyWithRetry(() => import('./components/Demographic
 const AdsTableView = lazyWithRetry(() => import('./components/AdsTableView'));
 const SettingsView = lazyWithRetry(() => import('./components/SettingsView'));
 const PlanningDashboardView = lazyWithRetry(() => import('./components/PlanningDashboardView'));
+const BMSettingsTab = lazyWithRetry(() => import('./components/BMSettingsTab'));
 
 export default function App() {
 
@@ -61,37 +63,8 @@ export default function App() {
   const [metaAccounts, setMetaAccounts] = useState<any[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
-  // Filter States
-  // Filter States - Priority: LocalStorage > Default (URL Filters Removed)
-  // Filter States - Priority: LocalStorage > Default (URL Filters Removed)
-  /* Franchise filter removed per user request
-  const [selectedFranchise, setSelectedFranchise] = useState<string>(() => {
-    return localStorage.getItem('op7_franchise_filter') || '';
-  });
-  */
-
-  const [selectedAccount, setSelectedAccount] = useState<string>(() => {
-    return localStorage.getItem('op7_account_filter') || 'ALL';
-  });
-
-  const [dateRange, setDateRange] = useState<RangeValue | null>(() => {
-    const savedDates = localStorage.getItem('op7_date_range');
-    if (savedDates) {
-      try {
-        const parsed = JSON.parse(savedDates);
-        return {
-          start: new Date(parsed.start),
-          end: new Date(parsed.end)
-        };
-      } catch (e) {
-        logger.error("Failed to parse saved dates", e);
-      }
-    }
-    return {
-      start: subDays(new Date(), 1),
-      end: subDays(new Date(), 1)
-    };
-  });
+  // Filter States - Managed by FSD Context now
+  const { selectedAccount, setSelectedAccount, dateRange, setDateRange } = useFilters();
 
   // Clean URL parameters on mount
   useEffect(() => {
@@ -125,29 +98,29 @@ export default function App() {
   // --- FILTERED LISTS (MEMOIZED) ---
   const availableFranchises = useMemo(() => {
     if (!officialFranchises.length) return [];
-    
+
     if (isAdmin) return officialFranchises;
 
     // Derive franchises from accessible accounts
     if (metaAccounts.length > 0) {
-        const allowedFranchiseIds = new Set(metaAccounts.map(a => a.franchise_id).filter(Boolean));
-        return officialFranchises.filter(f => allowedFranchiseIds.has(f.id));
+      const allowedFranchiseIds = new Set(metaAccounts.map(a => a.franchise_id).filter(Boolean));
+      return officialFranchises.filter(f => allowedFranchiseIds.has(f.id));
     }
-    
-    return []; 
+
+    return [];
   }, [officialFranchises, metaAccounts, isAdmin]);
 
   const availableAccounts = useMemo(() => {
-      if (!metaAccounts.length) return [];
-      
-      const mappedAccounts: ResolvedMetaAccount[] = metaAccounts.map(a => ({
-          ...a,
-          id: a.account_id,
-          franchise_id: a.franchise_id || null, // Ensure compatibility
-          franchise_name: a.franchise_name || ''
-      }));
+    if (!metaAccounts.length) return [];
 
-      return filterAccountsByAccess(mappedAccounts);
+    const mappedAccounts: ResolvedMetaAccount[] = metaAccounts.map(a => ({
+      ...a,
+      id: a.account_id,
+      franchise_id: a.franchise_id || null, // Ensure compatibility
+      franchise_name: a.franchise_name || ''
+    }));
+
+    return filterAccountsByAccess(mappedAccounts);
   }, [metaAccounts, filterAccountsByAccess]);
 
 
@@ -160,11 +133,11 @@ export default function App() {
       try {
         const start = dateRange.start!;
         const end = dateRange.end!;
-        
+
         // Determina franquias para filtro (IDs sent to Service)
         // Always empty means "all accessible" (Service handles logic)
         const franchiseIdsForService: string[] = [];
-        
+
         /* Removed filter logic
         if (selectedFranchise) {
           // ...
@@ -180,19 +153,19 @@ export default function App() {
 
         // Fetch Accounts First (to have the list for filtering)
         const allAccountsRaw = await fetchMetaAccounts();
-        
+
         // Filter accounts for the dropdown/state
         const mappedAccounts: ResolvedMetaAccount[] = allAccountsRaw.map(a => {
-             const franchise = officialFranchises.find(f => f.id === a.franchise_id);
-             return {
-                 ...a, 
-                 id: a.account_id,
-                 franchise_id: a.franchise_id || null, 
-                 franchise_name: franchise?.name || '',
-                 status: (a.status === 'removed' ? 'removed' : 'active') as 'active' | 'removed' | 'disabled'
-             };
+          const franchise = officialFranchises.find(f => f.id === a.franchise_id);
+          return {
+            ...a,
+            id: a.account_id,
+            franchise_id: a.franchise_id || null,
+            franchise_name: franchise?.name || '',
+            status: (a.status === 'removed' ? 'removed' : 'active') as 'active' | 'removed' | 'disabled'
+          };
         });
-        
+
         const filteredAccounts = filterAccountsByAccess(mappedAccounts);
         setMetaAccounts(filteredAccounts);
 
@@ -202,22 +175,22 @@ export default function App() {
         let effectiveAccountIds: string[] = [];
 
         if (selectedAccount && selectedAccount !== 'ALL') {
-            // Specific account selected
-            effectiveAccountIds = [selectedAccount];
+          // Specific account selected
+          effectiveAccountIds = [selectedAccount];
         } else if (isAdmin) {
-            // Admin: "ALL" or no selection → all loaded account IDs
-            effectiveAccountIds = filteredAccounts.map(a => a.account_id);
+          // Admin: "ALL" or no selection → all loaded account IDs
+          effectiveAccountIds = filteredAccounts.map(a => a.account_id);
         } else {
-            // Client: "ALL" or no selection → only their assigned accounts
-            effectiveAccountIds = allowedAccountIds;
+          // Client: "ALL" or no selection → only their assigned accounts
+          effectiveAccountIds = allowedAccountIds;
         }
 
         // For RPCs that still use franchise/account params (KPI, Summary)
-        const serviceAccountFilter = selectedAccount && selectedAccount !== 'ALL' 
-            ? [selectedAccount] 
-            : [];
+        const serviceAccountFilter = selectedAccount && selectedAccount !== 'ALL'
+          ? [selectedAccount]
+          : [];
 
-        logger.info('Loading dashboard data:', { 
+        logger.info('Loading dashboard data:', {
           role: userProfile.role,
           effectiveIds: effectiveAccountIds.length,
           filterMode: selectedAccount || 'NONE'
@@ -234,7 +207,7 @@ export default function App() {
         setFormattedComparisonData(campaignResult.previous);
         setKpiRpcData(kpiResult);
         setSummaryData(summaryResult);
-        
+
         setIsDemoMode(campaignResult.isMock);
         if (campaignResult.isMock) setConnectionError(campaignResult.error);
         setIsDataLoaded(true);
@@ -247,12 +220,12 @@ export default function App() {
     };
 
     loadData();
-    
+
     // Dependencies: Stable ones only
   }, [
-    session, 
-    userProfile?.id, 
-    dateRange?.start?.toISOString(), 
+    session,
+    userProfile?.id,
+    dateRange?.start?.toISOString(),
     dateRange?.end?.toISOString(),
     // selectedFranchise, // Removed dependency
     selectedAccount
@@ -280,7 +253,7 @@ export default function App() {
     if (!metaAccounts.length) return 0;
 
     // Franchise filter removed - calculate for all visible accounts
-    
+
     return metaAccounts
       .filter(acc => {
         if (selectedAccount === 'ALL') return true; // Sum matching accounts
@@ -311,14 +284,14 @@ export default function App() {
   const filteredData = useMemo(() => {
     // RBAC: Require account selection - no data shown without specific account
     if (!selectedAccount) return [];
-    
+
     return data.filter(d => {
       // Logic for ALL
       if (selectedAccount === 'ALL') {
-          // If Admin, generic ALL shows everything.
-          // If Client, data is already restricted by fetching logic (loadData sends restricted IDs).
-          // So filtering by "ALL" here just means "don't filter by specific account ID".
-          return true;
+        // If Admin, generic ALL shows everything.
+        // If Client, data is already restricted by fetching logic (loadData sends restricted IDs).
+        // So filtering by "ALL" here just means "don't filter by specific account ID".
+        return true;
       }
 
       // Handle both 'act_' prefixed and numeric account IDs
@@ -335,9 +308,9 @@ export default function App() {
   const comparisonData = useMemo(() => {
     // RBAC: Require account selection - no data shown without specific account
     if (!selectedAccount) return [];
-    
+
     return formattedComparisonData.filter(d => {
-       if (selectedAccount === 'ALL') return true;
+      if (selectedAccount === 'ALL') return true;
 
       // Handle both 'act_' prefixed and numeric account IDs
       const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
@@ -430,27 +403,27 @@ export default function App() {
                 <ManagerialView
                   dateRange={dateRange}
                   accountIds={(() => {
-                      // Logic reused from loadData to determining effective Account IDs
-                      const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
-                      
-                      if (selectedAccount === 'ALL') {
-                          // Allow 'ALL' to signify "All accessible accounts"
-                          // Admin: all visible (use availableAccounts.map(id))
-                          // Client: allowedAccountIds
-                          
-                          if (!userProfile) return [];
-                          if (userProfile.role === 'admin') {
-                              return metaAccounts.map(a => a.account_id);
-                          } else {
-                              return allowedAccountIds;
-                          }
-                      } else if (normalizedSelected) {
-                          return [normalizedSelected];
-                      } else if (userProfile?.role !== 'admin') {
-                          // Fallback client
-                          return allowedAccountIds;
+                    // Logic reused from loadData to determining effective Account IDs
+                    const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
+
+                    if (selectedAccount === 'ALL') {
+                      // Allow 'ALL' to signify "All accessible accounts"
+                      // Admin: all visible (use availableAccounts.map(id))
+                      // Client: allowedAccountIds
+
+                      if (!userProfile) return [];
+                      if (userProfile.role === 'admin') {
+                        return metaAccounts.map(a => a.account_id);
+                      } else {
+                        return allowedAccountIds;
                       }
-                      return []; // Admin no selection -> empty?
+                    } else if (normalizedSelected) {
+                      return [normalizedSelected];
+                    } else if (userProfile?.role !== 'admin') {
+                      // Fallback client
+                      return allowedAccountIds;
+                    }
+                    return []; // Admin no selection -> empty?
                   })()}
                 />
 

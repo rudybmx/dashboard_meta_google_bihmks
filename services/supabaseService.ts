@@ -2,9 +2,9 @@ export { supabase } from './supabaseClient';
 import { supabase } from './supabaseClient';
 import { CampaignData, SummaryReportRow, MetaAdAccount } from '../types';
 import { Database } from '../types/database.types';
-import { logger } from '../lib/logger';
+import { logger } from '@/src/shared/lib/logger';
 import { AdsInsightRow } from '../src/utils/dataAggregation';
-import { getPreviousPeriod, formatDateForDB } from '../lib/dateUtils';
+import { getPreviousPeriod, formatDateForDB } from '@/src/shared/lib/dateUtils';
 
 // ============================================================================
 // TIPOS AUXILIARES (derivados do schema do banco)

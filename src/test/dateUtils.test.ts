@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPreviousPeriod, formatDateForDB } from '../../lib/dateUtils';
+import { getPreviousPeriod, formatDateForDB } from '@/src/shared/lib/dateUtils';
 
 describe('dateUtils', () => {
   describe('getPreviousPeriod', () => {

@@ -6,14 +6,14 @@ import {
     TableHead,
     TableHeader,
     TableRow
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+} from '@/src/shared/ui/table';
+import { Button } from '@/src/shared/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/src/shared/ui/dialog';
 import { Plus, Pencil, Trash2, Loader2, Calendar } from 'lucide-react';
 import {
     fetchPlannings,

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { CampaignData } from '../types';
-import { 
-  Search, 
-  Download, 
+import {
+  Search,
+  Download,
   ChevronDown,
   ChevronRight,
   Facebook,
@@ -14,10 +14,10 @@ import {
   MessageCircle,
   Network
 } from 'lucide-react';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button-1";
-import { cn } from "@/lib/utils";
-import { SafeImage } from './ui/SafeImage';
+import { Input } from "@/src/shared/ui/input";
+import { Button } from "@/src/shared/ui/button-1";
+import { cn } from "@/src/shared/lib/utils";
+import { SafeImage } from '@/src/shared/ui/SafeImage';
 
 interface Props {
   data: CampaignData[];
@@ -89,14 +89,14 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
     }
 
     const campaign = campaigns[campaignKey];
-    
+
     // Add platform
     if (row.target_plataformas) {
-        // Handle comma separated if legacy, but usually it's one per row in granular reports
-        // or a string in summary. We add to Set to ensure uniqueness.
-        campaign.platforms.add(row.target_plataformas.toLowerCase());
+      // Handle comma separated if legacy, but usually it's one per row in granular reports
+      // or a string in summary. We add to Set to ensure uniqueness.
+      campaign.platforms.add(row.target_plataformas.toLowerCase());
     } else {
-        campaign.platforms.add('facebook'); // Default
+      campaign.platforms.add('facebook'); // Default
     }
 
     // Find or create adset
@@ -201,7 +201,7 @@ const downloadCSV = (data: CampaignHierarchy[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `campaigns_export_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute("download", `campaigns_export_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -270,25 +270,25 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
   // Filter data
   const filteredData = useMemo(() => {
     let result = hierarchyData;
-    
+
     // Filter by objective
     if (objectiveFilter) {
       result = result.filter(c => c.objective === objectiveFilter);
     }
-    
+
     // Filter by search text
     if (globalFilter.trim()) {
       const search = globalFilter.toLowerCase();
-      result = result.filter(c => 
+      result = result.filter(c =>
         c.campaign_name.toLowerCase().includes(search) ||
         c.account_name.toLowerCase().includes(search) ||
-        c.adsets.some(a => 
+        c.adsets.some(a =>
           a.adset_name.toLowerCase().includes(search) ||
           a.ads.some(ad => ad.ad_name.toLowerCase().includes(search))
         )
       );
     }
-    
+
     return result;
   }, [hierarchyData, globalFilter, objectiveFilter]);
 
@@ -319,50 +319,50 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Campanhas</h2>
-           <p className="text-slate-500">Hierarquia: Campanha → Conjunto → Anúncio</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Campanhas</h2>
+          <p className="text-slate-500">Hierarquia: Campanha → Conjunto → Anúncio</p>
         </div>
-        
+
         <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* Search Input */}
-            <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Buscar campanha..." 
-                    className="pl-8 h-10" 
-                    value={globalFilter}
-                    onChange={(e) => setGlobalFilter(e.target.value)}
-                />
-            </div>
-            {/* Objective Filter */}
-            <select
-              value={objectiveFilter}
-              onChange={(e) => setObjectiveFilter(e.target.value)}
-              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
-            >
-              <option value="">Todos os Objetivos</option>
-              {uniqueObjectives.map(obj => (
-                <option key={obj} value={obj}>{obj}</option>
-              ))}
-            </select>
-            <Button 
-                variant="styled" 
-                type="secondary" 
-                className="h-10 px-4 gap-2"
-                onClick={() => downloadCSV(filteredData)}
-            >
-                <div><Download size={16} /></div> <span>Exportar</span>
-            </Button>
+          {/* Search Input */}
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar campanha..."
+              className="pl-8 h-10"
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+            />
+          </div>
+          {/* Objective Filter */}
+          <select
+            value={objectiveFilter}
+            onChange={(e) => setObjectiveFilter(e.target.value)}
+            className="h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+          >
+            <option value="">Todos os Objetivos</option>
+            {uniqueObjectives.map(obj => (
+              <option key={obj} value={obj}>{obj}</option>
+            ))}
+          </select>
+          <Button
+            variant="styled"
+            type="secondary"
+            className="h-10 px-4 gap-2"
+            onClick={() => downloadCSV(filteredData)}
+          >
+            <div><Download size={16} /></div> <span>Exportar</span>
+          </Button>
         </div>
       </div>
 
       {/* Table Container */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-        <div className="max-h-[calc(100vh-280px)] overflow-auto">
+        <div className="max-h-[calc(100vh-320px)] overflow-auto">
           <table className="w-full border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
               <tr>
@@ -404,7 +404,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                   return (
                     <React.Fragment key={campaignKey}>
                       {/* Campaign Row */}
-                      <tr 
+                      <tr
                         className={cn(
                           "hover:bg-slate-50/80 transition-colors border-b border-slate-100 cursor-pointer",
                           cidx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
@@ -446,7 +446,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                         return (
                           <React.Fragment key={adsetKey}>
                             {/* AdSet Row */}
-                            <tr 
+                            <tr
                               className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors border-b border-slate-100 cursor-pointer"
                               onClick={(e) => { e.stopPropagation(); toggleAdset(adsetKey); }}
                             >
@@ -473,7 +473,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
 
                             {/* Ads (Level 3) */}
                             {isAdsetExpanded && adset.ads.map((ad, adIdx) => (
-                              <tr 
+                              <tr
                                 key={ad.ad_id}
                                 className="bg-emerald-50/30 hover:bg-emerald-50/50 transition-colors border-b border-slate-100"
                               >
@@ -481,12 +481,12 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                   <div className="flex items-center gap-3">
                                     {/* Thumbnail */}
                                     {ad.ad_image_url ? (
-                                      <div 
+                                      <div
                                         className="w-10 h-10 rounded-md overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all flex-shrink-0"
                                         onClick={(e) => { e.stopPropagation(); setLightboxImage(ad.ad_image_url); }}
                                       >
-                                        <SafeImage 
-                                          src={ad.ad_image_url} 
+                                        <SafeImage
+                                          src={ad.ad_image_url}
                                           alt={ad.ad_name}
                                           className="w-full h-full object-cover"
                                         />
@@ -502,9 +502,9 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                     </span>
                                     {/* External Link */}
                                     {ad.ad_post_link && (
-                                      <a 
-                                        href={ad.ad_post_link} 
-                                        target="_blank" 
+                                      <a
+                                        href={ad.ad_post_link}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
                                         className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors"
@@ -549,20 +549,20 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
 
       {/* Lightbox Modal */}
       {lightboxImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setLightboxImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh]">
-            <button 
+            <button
               className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
               onClick={() => setLightboxImage(null)}
             >
               <X size={24} />
             </button>
-            <img 
-              src={lightboxImage} 
-              alt="Creative" 
+            <img
+              src={lightboxImage}
+              alt="Creative"
               className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain"
               onClick={(e) => e.stopPropagation()}
             />

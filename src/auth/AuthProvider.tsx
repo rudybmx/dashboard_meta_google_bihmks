@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { UserProfile, UserRole, LocalSession } from './types';
-import { logger } from '../../lib/logger';
+import { logger } from '@/src/shared/lib/logger';
 
 export interface AuthContextType {
     session: LocalSession | null;

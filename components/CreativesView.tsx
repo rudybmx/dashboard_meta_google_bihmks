@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { CampaignData } from '../types';
-import { SafeImage } from './ui/SafeImage';
+import { SafeImage } from '@/src/shared/ui/SafeImage';
 import { Trophy, AlertCircle, Image as ImageIcon, ExternalLink, X, LayoutGrid, List, Search } from 'lucide-react';
 
-import { Select } from "@/components/ui/select-1";
-import { Button } from "@/components/ui/button-1";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { Select } from "@/src/shared/ui/select-1";
+import { Button } from "@/src/shared/ui/button-1";
+import { Dialog, DialogContent } from "@/src/shared/ui/dialog";
+import { cn } from "@/src/shared/lib/utils";
 
 interface Props {
   data: CampaignData[];

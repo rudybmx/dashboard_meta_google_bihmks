@@ -1,12 +1,12 @@
 import React from 'react';
 import { LayoutDashboard, PieChart, Users, Settings, LogOut, Palette, LayoutGrid, ClipboardList, ArrowDown } from 'lucide-react';
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/src/shared/lib/utils";
+import { Button } from "@/src/shared/ui/button";
 import { useAuth } from '@/src/auth/useAuth';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary' | 'planning';
-  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary' | 'planning') => void;
+  activeView: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary' | 'planning' | 'executive';
+  setActiveView: (view: 'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'demographics' | 'ads' | 'summary' | 'planning' | 'executive') => void;
   isDemoMode: boolean;
   userRole?: string;
   userName?: string;

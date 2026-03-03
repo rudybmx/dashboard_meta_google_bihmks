@@ -10,11 +10,11 @@ describe('Logger', () => {
   beforeEach(async () => {
     // Clear module cache to get fresh logger instance
     vi.resetModules();
-    
-    consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => { });
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => { });
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -22,8 +22,8 @@ describe('Logger', () => {
   });
 
   it('should have logger structure', async () => {
-    const { logger } = await import('../../lib/logger');
-    
+    const { logger } = await import('@/src/shared/lib/logger');
+
     expect(logger).toHaveProperty('debug');
     expect(logger).toHaveProperty('info');
     expect(logger).toHaveProperty('warn');
@@ -35,11 +35,11 @@ describe('Logger', () => {
   });
 
   it('should format messages with prefix', async () => {
-    const { logger } = await import('../../lib/logger');
+    const { logger } = await import('@/src/shared/lib/logger');
     const error = new Error('Test error');
-    
+
     logger.error('Something failed:', error);
-    
+
     // In dev mode, should be called with prefix
     if (import.meta.env.DEV) {
       expect(consoleErrorSpy).toHaveBeenCalled();

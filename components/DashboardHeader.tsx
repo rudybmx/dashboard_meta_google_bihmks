@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Calendar, RangeValue } from '@/components/ui/calendar';
-import { Select } from '@/components/ui/select-1';
+import { Calendar, RangeValue } from '@/src/shared/ui/calendar';
+import { Select } from '@/src/shared/ui/select-1';
 import { Filter, CalendarDays } from 'lucide-react';
 import { CampaignData } from '../types';
 import { subDays, startOfMonth } from 'date-fns';

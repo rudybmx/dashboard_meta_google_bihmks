@@ -19,8 +19,8 @@ import {
   Globe2,
   AlertCircle 
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/src/shared/ui/card";
+import { cn } from "@/src/shared/lib/utils";
 
 interface Props {
   data: CampaignData[];
