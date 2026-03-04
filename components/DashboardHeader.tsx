@@ -1,17 +1,25 @@
 import React, { useMemo } from 'react';
 import { Calendar, RangeValue } from '@/src/shared/ui/calendar';
 import { Select } from '@/src/shared/ui/select-1';
-import { Filter, CalendarDays } from 'lucide-react';
+import { Filter, CalendarDays, Folder, Check, ChevronsUpDown } from 'lucide-react';
 import { CampaignData } from '../types';
+import { useClusters } from '@/src/entities/cluster/api/useClusters';
 import { subDays, startOfMonth } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Badge } from '@/src/shared/ui/badge';
+import { Button } from '@/src/shared/ui/button';
+import { cn } from '@/src/shared/lib/utils';
 
 interface DashboardHeaderProps {
   title: string;
   data: CampaignData[];
-  selectedClient: string;
-  setSelectedClient: (val: string) => void;
+  selectedClients: string[];
+  setSelectedClients: (val: string[]) => void;
   dateRange: RangeValue | null;
   setDateRange: (range: RangeValue | null) => void;
+  selectedCluster?: string;
+  setSelectedCluster?: (val: string) => void;
   isLocked?: boolean;
   availableFranchises: { id: string; name: string }[];
   metaAccounts: any[];
@@ -22,27 +30,34 @@ interface DashboardHeaderProps {
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   title,
   data,
-  selectedClient,
-  setSelectedClient,
+  selectedClients,
+  setSelectedClients,
   dateRange,
   setDateRange,
   isLocked = false,
   availableFranchises,
   metaAccounts,
   userRole,
-  assignedAccountIds
+  assignedAccountIds,
+  selectedCluster,
+  setSelectedCluster
 }) => {
+  const { data: clusters = [] } = useClusters();
+  const [open, setOpen] = React.useState(false);
 
   // 1. Prepare Franchise Options - REMOVED
 
 
   // 2. Extract Clients
-  
+
   const clients = useMemo(() => {
     let filtered = metaAccounts || [];
 
-    // Step 1: Filter by selected franchise - REMOVED
-
+    // Step 1: Filter by selected cluster (Cascade Logic)
+    if (selectedCluster && selectedCluster !== 'ALL') {
+      const clusterAccountIds = clusters.find(c => c.id === selectedCluster)?.cluster_accounts?.map(ca => ca.account_id) || [];
+      filtered = filtered.filter(acc => clusterAccountIds.includes(acc.account_id));
+    }
 
     // Step 2: Apply RBAC - Filter by user's assigned accounts
     // Admins and executives see all accounts, other roles are restricted
@@ -70,16 +85,42 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       .filter(acc => acc.client_visibility !== false)
       .map(acc => ({
         value: acc.account_id,
-        label: acc.display_name || acc.account_name
+        label: acc.display_name || acc.account_name,
+        id: acc.account_id
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
-    // Add "All Accounts" option
-    return [
-      { value: 'ALL', label: 'Todas as contas' },
-      ...clientOptions
-    ];
-  }, [metaAccounts, userRole, assignedAccountIds]);
+    // Optional: add a virtual "ALL" option inside the combobox, or rely on empty array to mean ALL
+    return clientOptions;
+  }, [metaAccounts, userRole, assignedAccountIds, selectedCluster, clusters]);
+
+  const toggleClient = (value: string) => {
+    if (value === 'ALL') {
+      setSelectedClients(selectedClients.includes('ALL') || selectedClients.length === 0 ? [] : ['ALL']);
+      return;
+    }
+
+    // Clear 'ALL' if a specific item is checked
+    let newSelected = selectedClients.filter(val => val !== 'ALL');
+
+    if (newSelected.includes(value)) {
+      newSelected = newSelected.filter(val => val !== value);
+    } else {
+      newSelected = [...newSelected, value];
+    }
+
+    if (newSelected.length === 0) {
+      setSelectedClients([]);
+    } else {
+      setSelectedClients(newSelected);
+    }
+  };
+
+  const getBadgeText = () => {
+    if (!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL')) return `Todas as unidades (${clients.length})`;
+    if (selectedClients.length === 1) return `1 unidade selecionada`;
+    return `${selectedClients.length} unidades selecionadas`;
+  };
 
   const isClientRole = userRole === 'client';
 
@@ -101,14 +142,104 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* 1. Franqueado (Hidden for Clients) - REMOVED */}
 
 
-        {/* 2. Cliente */}
-        <div className="w-[220px]">
-          <Select
-            placeholder="Selecione uma Conta"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            options={clients}
-          />
+        {/* 1.5 Agrupamento */}
+        {clusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
+          <div className="w-[200px]">
+            <Select
+              placeholder="Agrupamento"
+              value={selectedCluster}
+              onChange={(e) => setSelectedCluster(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Todos os agrupamentos' },
+                ...clusters.map(c => ({ value: c.id, label: c.name }))
+              ]}
+            />
+          </div>
+        )}
+
+        {/* 2. Cliente com Combobox Searchable */}
+        <div className="flex items-center gap-2">
+          {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL') ? false : true) && (
+            <Badge variant="secondary" className="font-normal border-indigo-100 bg-indigo-50 text-indigo-700">
+              {getBadgeText()}
+            </Badge>
+          )}
+
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="w-[280px] justify-between border-slate-200 font-normal bg-white"
+              >
+                <div className="flex items-center gap-1 overflow-hidden text-slate-600">
+                  <span className="truncate">
+                    {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL'))
+                      ? "Selecione Unidades..."
+                      : (selectedClients.length === 1
+                        ? clients.find(c => c.value === selectedClients[0])?.label || "1 selecionada"
+                        : getBadgeText())}
+                  </span>
+                </div>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0 shadow-lg" align="end">
+              <Command>
+                <CommandInput placeholder="Buscar unidade ou ID..." />
+                <CommandList>
+                  <CommandEmpty>Nenhuma conta encontrada.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setSelectedClients([]);
+                        setOpen(false);
+                      }}
+                      className="cursor-pointer font-medium text-slate-800"
+                    >
+                      <div className="flex items-center">
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 text-indigo-500",
+                            (!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL')) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        Todas as contas ({clients.length})
+                      </div>
+                    </CommandItem>
+                  </CommandGroup>
+                  <CommandGroup heading="Contas de Anúncio">
+                    {clients.map((client) => (
+                      <CommandItem
+                        key={client.value}
+                        value={client.label + ' ' + client.id} // Searchable by title or ID
+                        onSelect={() => toggleClient(client.value)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center w-full min-w-0">
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4 shrink-0 text-indigo-500",
+                              selectedClients.includes(client.value) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col overflow-hidden w-full">
+                            <span className="truncate text-slate-800 leading-tight" title={client.label}>
+                              {client.label}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono truncate">
+                              ID: {client.id}
+                            </span>
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="h-8 w-px bg-slate-200 mx-2"></div>

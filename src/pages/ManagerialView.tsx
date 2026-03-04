@@ -13,8 +13,8 @@ const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
 export const ManagerialView: React.FC = () => {
-    const { selectedAccount, dateRange } = useFilters();
-    const accountIds = selectedAccount && selectedAccount !== 'ALL' ? [selectedAccount] : [];
+    const { selectedAccounts, dateRange } = useFilters();
+    const accountIds = selectedAccounts.length > 0 && !selectedAccounts.includes('ALL') ? selectedAccounts : [];
 
     // Balance (Date Independent)
     const { balance: totalBalance, loading: balanceLoading } = useAvailableBalance(accountIds);

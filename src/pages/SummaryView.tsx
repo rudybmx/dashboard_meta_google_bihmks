@@ -5,6 +5,9 @@ import { cn } from "@/src/shared/lib/utils";
 import { useFinanceData } from '@/src/entities/finance';
 import { KPISection } from '@/src/widgets/KPISection';
 import { MainCharts } from '@/src/widgets/MainCharts';
+import { useFilters } from '@/src/features/filters';
+import { useClusters } from '@/src/entities/cluster';
+import { ClusterBreakdown } from '@/src/widgets/ClusterBreakdown';
 
 type SortDirection = 'asc' | 'desc';
 interface SortConfig {
@@ -18,6 +21,8 @@ const fmtDec = (value: number) => new Intl.NumberFormat('pt-BR', { minimumFracti
 
 export const SummaryView: React.FC = () => {
   const { data: metrics, isLoading, isError, error } = useFinanceData();
+  const { selectedCluster, selectedAccounts } = useFilters();
+  const { data: clustersList } = useClusters();
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
 
   const rawData = metrics?.rawData || [];
@@ -71,14 +76,34 @@ export const SummaryView: React.FC = () => {
   if (isLoading) return <div className="h-64 flex items-center justify-center gap-2 text-primary"><Loader2 className="animate-spin" /> Carregando relatório...</div>;
   if (isError) return <div className="p-8 text-center text-red-500">Erro: {error?.message}</div>;
 
+  let dashboardTitle = "Resumo Gerencial (RPC)";
+  let dashboardSubtitle = "Visão consolidada via Banco de Dados (Otimizado).";
+
+  if (selectedCluster && selectedCluster !== 'ALL') {
+    const clsName = clustersList?.find(c => c.id === selectedCluster)?.name || "Grupo";
+    dashboardTitle = `Visão Consolidada: ${clsName}`;
+    dashboardSubtitle = `Métricas somadas do Grupo e detalhamento por contas.`;
+  } else if (selectedAccounts.length > 0 && !selectedAccounts.includes('ALL')) {
+    const accName = rawData.length > 0 ? (rawData[0].nome_conta || (selectedAccounts.length === 1 ? selectedAccounts[0] : 'Várias Contas')) : (selectedAccounts.length === 1 ? selectedAccounts[0] : 'Várias Contas');
+    dashboardTitle = `Visão Geral: ${accName}`;
+    dashboardSubtitle = `Métricas exclusivas desta conta.`;
+  } else {
+    dashboardTitle = `Visão Global (Todas as Contas Ativas)`;
+    dashboardSubtitle = `Performance agregada de todas as clínicas disponíveis.`;
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Resumo Gerencial (RPC)</h2>
-        <p className="text-slate-500">Visão consolidada via Banco de Dados (Otimizado).</p>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900">{dashboardTitle}</h2>
+        <p className="text-slate-500">{dashboardSubtitle}</p>
       </div>
 
       <KPISection />
+
+      {selectedCluster && selectedCluster !== 'ALL' && (
+        <ClusterBreakdown />
+      )}
 
       <div className="mt-8 mb-8">
         <MainCharts />

@@ -3,8 +3,10 @@ import { subDays } from 'date-fns';
 import { RangeValue } from '@/src/shared/ui/calendar';
 
 interface FiltersContextData {
-    selectedAccount: string;
-    setSelectedAccount: (account: string) => void;
+    selectedAccounts: string[];
+    setSelectedAccounts: (accounts: string[]) => void;
+    selectedCluster: string;
+    setSelectedCluster: (cluster: string) => void;
     dateRange: RangeValue | null;
     setDateRange: (range: RangeValue | null) => void;
 }
@@ -12,8 +14,23 @@ interface FiltersContextData {
 const FiltersContext = createContext<FiltersContextData | undefined>(undefined);
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-    const [selectedAccount, setSelectedAccountState] = useState<string>(() => {
-        return localStorage.getItem('op7_account_filter') || 'ALL';
+    const [selectedAccounts, setSelectedAccountsState] = useState<string[]>(() => {
+        try {
+            const val = localStorage.getItem('op7_account_filter');
+            if (val) {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) return parsed;
+                if (val !== 'ALL') return [val];
+            }
+        } catch {
+            const val = localStorage.getItem('op7_account_filter');
+            if (val && val !== 'ALL') return [val];
+        }
+        return [];
+    });
+
+    const [selectedCluster, setSelectedClusterState] = useState<string>(() => {
+        return localStorage.getItem('op7_cluster_filter') || 'ALL';
     });
 
     const [dateRange, setDateRangeState] = useState<RangeValue | null>(() => {
@@ -35,9 +52,22 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         };
     });
 
-    const setSelectedAccount = (account: string) => {
-        setSelectedAccountState(account);
-        localStorage.setItem('op7_account_filter', account);
+    const setSelectedAccounts = (accounts: string[]) => {
+        setSelectedAccountsState(accounts);
+        localStorage.setItem('op7_account_filter', JSON.stringify(accounts));
+        if (selectedCluster !== 'ALL') {
+            setSelectedClusterState('ALL');
+            localStorage.setItem('op7_cluster_filter', 'ALL');
+        }
+    };
+
+    const setSelectedCluster = (cluster: string) => {
+        setSelectedClusterState(cluster);
+        localStorage.setItem('op7_cluster_filter', cluster);
+        if (selectedAccounts.length > 0) {
+            setSelectedAccountsState([]);
+            localStorage.setItem('op7_account_filter', '[]');
+        }
     };
 
     const setDateRange = (range: RangeValue | null) => {
@@ -53,7 +83,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <FiltersContext.Provider value={{ selectedAccount, setSelectedAccount, dateRange, setDateRange }}>
+        <FiltersContext.Provider value={{ selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange }}>
             {children}
         </FiltersContext.Provider>
     );

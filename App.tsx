@@ -13,8 +13,9 @@ import { ViewLoader } from './components/ViewLoader';
 import { useUserAccess } from './src/auth/useUserAccess';
 import { ResolvedMetaAccount, ResolvedFranchise } from './src/auth/types';
 import { useQuery } from '@tanstack/react-query';
-import { logger } from '@/src/shared/lib/logger';
 import { useFilters } from '@/src/features/filters';
+import { supabase } from './services/supabaseClient';
+import { logger } from '@/src/shared/lib/logger';
 
 
 // Retry wrapper for lazy imports — handles stale chunk 404s after new deploys
@@ -64,7 +65,7 @@ export default function App() {
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
 
   // Filter States - Managed by FSD Context now
-  const { selectedAccount, setSelectedAccount, dateRange, setDateRange } = useFilters();
+  const { selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange } = useFilters();
 
   // Clean URL parameters on mount
   useEffect(() => {
@@ -174,9 +175,19 @@ export default function App() {
         // Client: usa allowedAccountIds (assigned_account_ids do perfil)
         let effectiveAccountIds: string[] = [];
 
-        if (selectedAccount && selectedAccount !== 'ALL') {
-          // Specific account selected
-          effectiveAccountIds = [selectedAccount];
+        if (selectedAccounts && selectedAccounts.length > 0) {
+          // Specific accounts selected
+          effectiveAccountIds = selectedAccounts;
+        } else if (selectedCluster && selectedCluster !== 'ALL') {
+          const { data: clusterAccs } = await (supabase.from as any)('cluster_accounts').select('account_id').eq('cluster_id', selectedCluster);
+          const clusterAccountIds = clusterAccs?.map((a: any) => a.account_id) || [];
+          effectiveAccountIds = isAdmin ? clusterAccountIds : clusterAccountIds.filter(id => allowedAccountIds.includes(id));
+
+          if (effectiveAccountIds.length === 0) {
+            // Se o cluster não tem contas ou o usuário não tem permissão para testá-las
+            // Adicionalmente podemos usar numérico inválido ou 'NONE' para garantir vazio
+            effectiveAccountIds = ['NONE'];
+          }
         } else if (isAdmin) {
           // Admin: "ALL" or no selection → all loaded account IDs
           effectiveAccountIds = filteredAccounts.map(a => a.account_id);
@@ -186,14 +197,14 @@ export default function App() {
         }
 
         // For RPCs that still use franchise/account params (KPI, Summary)
-        const serviceAccountFilter = selectedAccount && selectedAccount !== 'ALL'
-          ? [selectedAccount]
+        const serviceAccountFilter = selectedAccounts && selectedAccounts.length > 0
+          ? selectedAccounts
           : [];
 
         logger.info('Loading dashboard data:', {
           role: userProfile.role,
           effectiveIds: effectiveAccountIds.length,
-          filterMode: selectedAccount || 'NONE'
+          filterMode: selectedAccounts.length > 0 ? selectedAccounts.join(',') : 'NONE'
         });
 
         // Now fetch data
@@ -227,16 +238,16 @@ export default function App() {
     userProfile?.id,
     dateRange?.start?.toISOString(),
     dateRange?.end?.toISOString(),
-    // selectedFranchise, // Removed dependency
-    selectedAccount
+    selectedAccounts,
+    selectedCluster
     // availableFranchises removed to prevent loop (it depends on metaAccounts which is set here)
   ]);
 
   // Sync Filters to LocalStorage (URL Sync Removed)
   useEffect(() => {
     // localStorage.setItem('op7_franchise_filter', selectedFranchise);
-    localStorage.setItem('op7_account_filter', selectedAccount);
-  }, [selectedAccount]);
+    localStorage.setItem('op7_account_filter', JSON.stringify(selectedAccounts));
+  }, [selectedAccounts]);
 
   // Save Dates to LocalStorage
   useEffect(() => {
@@ -256,12 +267,12 @@ export default function App() {
 
     return metaAccounts
       .filter(acc => {
-        if (selectedAccount === 'ALL') return true; // Sum matching accounts
-        const matchAccount = !selectedAccount || acc.account_id === selectedAccount || acc.account_name === selectedAccount;
+        if (selectedAccounts.length === 0 || selectedAccounts.includes('ALL')) return true; // Sum matching accounts
+        const matchAccount = selectedAccounts.includes(acc.account_id) || selectedAccounts.includes(acc.account_name);
         return matchAccount;
       })
       .reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
-  }, [metaAccounts, selectedAccount]);
+  }, [metaAccounts, selectedAccounts]);
 
   // Separate Effect for Franchises (Only once or when profile changes)
   useEffect(() => {
@@ -283,11 +294,11 @@ export default function App() {
 
   const filteredData = useMemo(() => {
     // RBAC: Require account selection - no data shown without specific account
-    if (!selectedAccount) return [];
+    if (!selectedAccounts) return [];
 
     return data.filter(d => {
       // Logic for ALL
-      if (selectedAccount === 'ALL') {
+      if (selectedAccounts.length === 0 || selectedAccounts.includes('ALL')) {
         // If Admin, generic ALL shows everything.
         // If Client, data is already restricted by fetching logic (loadData sends restricted IDs).
         // So filtering by "ALL" here just means "don't filter by specific account ID".
@@ -295,33 +306,31 @@ export default function App() {
       }
 
       // Handle both 'act_' prefixed and numeric account IDs
-      const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
-      const matchAccount = !selectedAccount ||
-        d.account_id === selectedAccount ||
-        d.account_id === normalizedSelected ||
-        d.account_name === selectedAccount;
+      const normalizedIds = selectedAccounts.map(id => id.replace(/^act_/i, ''));
+      const matchAccount = selectedAccounts.includes(d.account_id) ||
+        normalizedIds.includes(d.account_id) ||
+        selectedAccounts.includes(d.account_name);
 
       return matchAccount; // matchFranchise && matchAccount;
     });
-  }, [selectedAccount, data]);
+  }, [selectedAccounts, data]);
 
   const comparisonData = useMemo(() => {
     // RBAC: Require account selection - no data shown without specific account
-    if (!selectedAccount) return [];
+    if (!selectedAccounts) return [];
 
     return formattedComparisonData.filter(d => {
-      if (selectedAccount === 'ALL') return true;
+      if (selectedAccounts.length === 0 || selectedAccounts.includes('ALL')) return true;
 
       // Handle both 'act_' prefixed and numeric account IDs
-      const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
-      const matchAccount = !selectedAccount ||
-        d.account_id === selectedAccount ||
-        d.account_id === normalizedSelected ||
-        d.account_name === selectedAccount;
+      const normalizedIds = selectedAccounts.map(id => id.replace(/^act_/i, ''));
+      const matchAccount = selectedAccounts.includes(d.account_id) ||
+        normalizedIds.includes(d.account_id) ||
+        selectedAccounts.includes(d.account_name);
 
       return matchAccount; // matchFranchise && matchAccount;
     });
-  }, [selectedAccount, formattedComparisonData]);
+  }, [selectedAccounts, formattedComparisonData]);
 
   // Auth Guards & Loading
   if (authLoading) return (
@@ -368,8 +377,10 @@ export default function App() {
             <DashboardHeader
               title={activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : activeView === 'planning' ? 'Planejamento Analítico' : 'Dashboard'}
               data={data}
-              selectedClient={selectedAccount}
-              setSelectedClient={setSelectedAccount}
+              selectedClients={selectedAccounts}
+              setSelectedClients={setSelectedAccounts}
+              selectedCluster={selectedCluster}
+              setSelectedCluster={setSelectedCluster}
               dateRange={dateRange}
               setDateRange={setDateRange}
               isLocked={availableFranchises.length === 1 && userProfile?.role !== 'admin'}
@@ -390,7 +401,7 @@ export default function App() {
                 <SummaryView
                   data={filteredData}
                   selectedFranchisee={''} // Logic Removed
-                  selectedClient={selectedAccount}
+                  selectedClient={selectedAccounts.length === 1 ? selectedAccounts[0] : 'ALL'}
                   dateRange={dateRange}
                   allowedFranchises={availableFranchises.map(f => f.name)}
                   allowedAccounts={allowedAccountIds}
@@ -404,9 +415,8 @@ export default function App() {
                   dateRange={dateRange}
                   accountIds={(() => {
                     // Logic reused from loadData to determining effective Account IDs
-                    const normalizedSelected = selectedAccount ? selectedAccount.replace(/^act_/i, '') : '';
 
-                    if (selectedAccount === 'ALL') {
+                    if (selectedAccounts.length === 0 || selectedAccounts.includes('ALL')) {
                       // Allow 'ALL' to signify "All accessible accounts"
                       // Admin: all visible (use availableAccounts.map(id))
                       // Client: allowedAccountIds
@@ -417,8 +427,8 @@ export default function App() {
                       } else {
                         return allowedAccountIds;
                       }
-                    } else if (normalizedSelected) {
-                      return [normalizedSelected];
+                    } else if (selectedAccounts.length > 0) {
+                      return selectedAccounts.map(id => id.replace(/^act_/i, ''));
                     } else if (userProfile?.role !== 'admin') {
                       // Fallback client
                       return allowedAccountIds;
