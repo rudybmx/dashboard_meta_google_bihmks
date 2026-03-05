@@ -7,8 +7,14 @@ export const getChartData = (rawData: RawFinanceData[]) => {
         leads: row.leads || 0,
     })).sort((a, b) => b.spend - a.spend); // Sort by spend
 
-    // Create donut chart mapping
-    const pieColors = ["var(--color-spend)", "var(--color-leads)", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+    // Create donut chart mapping using the defined chart colors
+    const pieColors = [
+        "hsl(var(--chart-1))",
+        "hsl(var(--chart-2))",
+        "hsl(var(--chart-3))",
+        "hsl(var(--chart-4))",
+        "hsl(var(--chart-5))"
+    ];
 
     const pieData = rawData
         .filter(row => row.investimento > 0)

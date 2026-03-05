@@ -284,8 +284,8 @@ const PlatformIcons = ({ platforms }: { platforms: Set<string> }) => {
         </div>
       )}
       {hasAudience && (
-        <div title="Audience Network" className="bg-slate-50 p-1 rounded-full border border-slate-200">
-          <Network size={14} className="text-slate-600" />
+        <div title="Audience Network" className="bg-muted p-1 rounded-full border">
+          <Network size={14} className="text-muted-foreground" />
         </div>
       )}
       {hasGoogle && (
@@ -372,8 +372,8 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Campanhas</h2>
-          <p className="text-slate-500">Hierarquia: Campanha → Conjunto → Anúncio</p>
+          <h2 className="text-2xl font-bold tracking-tight">Campanhas</h2>
+          <p className="text-sm text-muted-foreground">Hierarquia: Campanha → Conjunto → Anúncio</p>
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -391,7 +391,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
           <select
             value={objectiveFilter}
             onChange={(e) => setObjectiveFilter(e.target.value)}
-            className="h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            className="h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-[160px]"
           >
             <option value="">Todos os Objetivos</option>
             {uniqueObjectives.map(obj => (
@@ -410,36 +410,36 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
       </div>
 
       {/* Table Container */}
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
         <div className="max-h-[calc(100vh-320px)] overflow-auto">
           <table className="w-full border-collapse">
-            <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+            <thead className="bg-muted/50 sticky top-0 z-10 shadow-sm font-bold text-xs uppercase text-muted-foreground tracking-wider">
               <tr>
-                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                <th className="py-3 px-4 text-left border-b">
                   Campanha / Conjunto / Anúncio
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[100px]">
+                <th className="py-3 px-4 text-left border-b w-[100px]">
                   Plataforma
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[120px]">
+                <th className="py-3 px-4 text-right border-b w-[120px]">
                   Investimento
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                <th className="py-3 px-4 text-right border-b w-[90px]">
                   Leads Geral
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                <th className="py-3 px-4 text-right border-b w-[90px]">
                   CPL
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[100px]">
+                <th className="py-3 px-4 text-right border-b w-[100px]">
                   Lds. Cadastro
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                <th className="py-3 px-4 text-right border-b w-[90px]">
                   Mensagens
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
+                <th className="py-3 px-4 text-right border-b w-[80px]">
                   CTR
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
+                <th className="py-3 px-4 text-right border-b w-[80px]">
                   CPC
                 </th>
               </tr>
@@ -461,34 +461,34 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                       {/* Campaign Row */}
                       <tr
                         className={cn(
-                          "hover:bg-slate-50/80 transition-colors border-b border-slate-100 cursor-pointer",
-                          cidx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
+                          "hover:bg-muted/50 transition-colors border-b",
+                          cidx % 2 === 0 ? "bg-card" : "bg-muted/20"
                         )}
                         onClick={() => toggleCampaign(campaignKey)}
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-slate-400">
+                            <span className="text-muted-foreground/60">
                               {isCampaignExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                             </span>
                             <div className="flex flex-col gap-0.5">
-                              <span className="font-semibold text-slate-900 line-clamp-1" title={campaign.campaign_name}>
+                              <span className="font-semibold text-sm line-clamp-1" title={campaign.campaign_name}>
                                 {campaign.campaign_name}
                               </span>
-                              <span className="text-[10px] text-slate-400">{campaign.account_name} • {campaign.adsets.length} conjuntos</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">{campaign.account_name} • {campaign.adsets.length} conjuntos</span>
                             </div>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           <PlatformIcons platforms={campaign.platforms} />
                         </td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-700">{fmtCurrency(campaign.spend)}</td>
-                        <td className="py-3 px-4 text-right font-bold text-blue-600">{campaign.leads}</td>
-                        <td className="py-3 px-4 text-right text-slate-600">{fmtCurrency(campaign.cpl)}</td>
-                        <td className="py-3 px-4 text-right text-slate-500">{campaign.leads_cadastro}</td>
-                        <td className="py-3 px-4 text-right text-slate-500">{campaign.conversas}</td>
-                        <td className="py-3 px-4 text-right text-slate-500">{campaign.ctr.toFixed(2)}%</td>
-                        <td className="py-3 px-4 text-right text-slate-500">{fmtCurrency(campaign.cpc)}</td>
+                        <td className="py-3 px-4 text-right font-bold text-xs">{fmtCurrency(campaign.spend)}</td>
+                        <td className="py-3 px-4 text-right font-bold text-xs text-primary">{campaign.leads}</td>
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">{fmtCurrency(campaign.cpl)}</td>
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">{campaign.leads_cadastro}</td>
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">{campaign.conversas}</td>
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">{campaign.ctr.toFixed(2)}%</td>
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">{fmtCurrency(campaign.cpc)}</td>
                       </tr>
 
                       {/* AdSets (Level 2) */}
@@ -500,37 +500,37 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                           <React.Fragment key={adsetKey}>
                             {/* AdSet Row */}
                             <tr
-                              className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors border-b border-slate-100 cursor-pointer"
+                              className="bg-primary/5 hover:bg-primary/10 transition-colors border-b cursor-pointer"
                               onClick={(e) => { e.stopPropagation(); toggleAdset(adsetKey); }}
                             >
                               <td className="py-2 px-4 pl-10">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-blue-400">
+                                  <span className="text-primary/60">
                                     {isAdsetExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                   </span>
                                   <div className="flex flex-col gap-0.5">
-                                    <span className="font-medium text-slate-700 text-sm line-clamp-1" title={adset.adset_name}>
+                                    <span className="font-medium text-foreground text-xs line-clamp-1" title={adset.adset_name}>
                                       {adset.adset_name}
                                     </span>
-                                    <span className="text-[10px] text-slate-400">{adset.ads.length} anúncios</span>
+                                    <span className="text-[10px] text-muted-foreground">{adset.ads.length} anúncios</span>
                                   </div>
                                 </div>
                               </td>
                               <td className="py-2 px-4"></td>
-                              <td className="py-2 px-4 text-right font-medium text-slate-600 text-sm">{fmtCurrency(adset.spend)}</td>
-                              <td className="py-2 px-4 text-right font-medium text-blue-500 text-sm">{adset.leads}</td>
-                              <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(adset.cpl)}</td>
-                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.leads_cadastro}</td>
-                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.conversas}</td>
-                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.ctr.toFixed(2)}%</td>
-                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(adset.cpc)}</td>
+                              <td className="py-2 px-4 text-right font-medium text-xs">{fmtCurrency(adset.spend)}</td>
+                              <td className="py-2 px-4 text-right font-medium text-primary text-xs">{adset.leads}</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{fmtCurrency(adset.cpl)}</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{adset.leads_cadastro}</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{adset.conversas}</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{adset.ctr.toFixed(2)}%</td>
+                              <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{fmtCurrency(adset.cpc)}</td>
                             </tr>
 
                             {/* Ads (Level 3) */}
                             {isAdsetExpanded && adset.ads.map((ad, adIdx) => (
                               <tr
                                 key={ad.ad_id}
-                                className="bg-emerald-50/30 hover:bg-emerald-50/50 transition-colors border-b border-slate-100"
+                                className="bg-muted/10 hover:bg-muted/30 transition-colors border-b"
                               >
                                 <td className="py-2 px-4 pl-16">
                                   <div className="flex items-center gap-3">
@@ -552,7 +552,7 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                       </div>
                                     )}
                                     {/* Ad Name */}
-                                    <span className="text-slate-600 text-sm line-clamp-1 flex-1" title={ad.ad_name}>
+                                    <span className="text-muted-foreground text-xs line-clamp-1 flex-1" title={ad.ad_name}>
                                       {ad.ad_name}
                                     </span>
                                     {/* External Link */}
@@ -571,13 +571,13 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                   </div>
                                 </td>
                                 <td className="py-2 px-4"></td>
-                                <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(ad.spend)}</td>
-                                <td className="py-2 px-4 text-right text-blue-400 text-sm">{ad.leads}</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(ad.cpl)}</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.leads_cadastro}</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.conversas}</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.ctr.toFixed(2)}%</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(ad.cpc)}</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{fmtCurrency(ad.spend)}</td>
+                                <td className="py-2 px-4 text-right text-primary/80 text-[10px]">{ad.leads}</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{fmtCurrency(ad.cpl)}</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{ad.leads_cadastro}</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{ad.conversas}</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{ad.ctr.toFixed(2)}%</td>
+                                <td className="py-2 px-4 text-right text-muted-foreground text-[10px]">{fmtCurrency(ad.cpc)}</td>
                               </tr>
                             ))}
                           </React.Fragment>
@@ -589,12 +589,12 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
               )}
             </tbody>
             {/* Footer with Totals */}
-            <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 sticky bottom-0">
+            <tfoot className="bg-muted/50 font-bold border-t border-muted tracking-tight text-xs">
               <tr>
-                <td className="py-3 px-4 text-slate-800">Total ({filteredData.length} campanhas)</td>
+                <td className="py-3 px-4">Total ({filteredData.length} campanhas)</td>
                 <td className="py-3 px-4"></td>
                 <td className="py-3 px-4 text-right">{fmtCurrency(totals.spend)}</td>
-                <td className="py-3 px-4 text-right text-blue-600">{totals.leads}</td>
+                <td className="py-3 px-4 text-right text-primary">{totals.leads}</td>
                 <td className="py-3 px-4 text-right">{fmtCurrency(totals.leads > 0 ? totals.spend / totals.leads : 0)}</td>
                 <td className="py-3 px-4 text-right">{totals.leads_cadastro}</td>
                 <td className="py-3 px-4 text-right">{totals.conversas}</td>

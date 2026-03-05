@@ -59,17 +59,17 @@ export const KPISection: React.FC<{ accountIds?: string[] }> = ({ accountIds }) 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6">
             {cards.map((card, idx) => (
-                <Card key={idx} className="hover:shadow-lg transition-shadow duration-300">
+                <Card key={idx} className="hover:shadow-md transition-shadow duration-300">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             {card.label}
                         </CardTitle>
-                        <div className="p-2 rounded-lg bg-slate-50">
+                        <div className="p-2 rounded-md bg-muted/50">
                             {card.icon}
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-slate-800">{card.value}</div>
+                        <div className="text-2xl font-bold tracking-tight">{card.value}</div>
                     </CardContent>
                 </Card>
             ))}

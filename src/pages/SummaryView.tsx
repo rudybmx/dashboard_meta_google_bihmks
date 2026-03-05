@@ -108,8 +108,8 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">{dashboardTitle}</h2>
-        <p className="text-slate-500">{dashboardSubtitle}</p>
+        <h2 className="text-2xl font-bold tracking-tight">{dashboardTitle}</h2>
+        <p className="text-sm text-muted-foreground">{dashboardSubtitle}</p>
       </div>
 
       <KPISection accountIds={effectiveAccountIds} />
@@ -125,22 +125,22 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
         <MainCharts accountIds={effectiveAccountIds} />
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden mt-8">
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden mt-8">
         <Table>
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
             <TableRow>
-              <TableHead className="w-[200px] cursor-pointer" onClick={() => requestSort('nome_conta')}>Conta <SortIcon colKey="nome_conta" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('investimento')}>Investimento <SortIcon colKey="investimento" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('compras')}>Compras <SortIcon colKey="compras" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('leads')}>Leads <SortIcon colKey="leads" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpl')}>CPL <SortIcon colKey="cpl" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpc')}>CPC <SortIcon colKey="cpc" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpr')}>CPR <SortIcon colKey="cpr" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('cpm')}>CPM <SortIcon colKey="cpm" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('freq')}>Freq. <SortIcon colKey="freq" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('impressoes')}>Impr. <SortIcon colKey="impressoes" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('clicks')}>Cliques <SortIcon colKey="clicks" /></TableHead>
-              <TableHead className="text-right cursor-pointer" onClick={() => requestSort('saldo_atual')}>Saldo <SortIcon colKey="saldo_atual" /></TableHead>
+              <TableHead className="w-[200px] cursor-pointer text-xs uppercase" onClick={() => requestSort('nome_conta')}>Conta <SortIcon colKey="nome_conta" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('investimento')}>Investimento <SortIcon colKey="investimento" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('compras')}>Compras <SortIcon colKey="compras" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('leads')}>Leads <SortIcon colKey="leads" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('cpl')}>CPL <SortIcon colKey="cpl" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('cpc')}>CPC <SortIcon colKey="cpc" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('cpr')}>CPR <SortIcon colKey="cpr" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('cpm')}>CPM <SortIcon colKey="cpm" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('freq')}>Freq. <SortIcon colKey="freq" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('impressoes')}>Impr. <SortIcon colKey="impressoes" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('clicks')}>Cliques <SortIcon colKey="clicks" /></TableHead>
+              <TableHead className="text-right cursor-pointer text-xs uppercase" onClick={() => requestSort('saldo_atual')}>Saldo <SortIcon colKey="saldo_atual" /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -157,40 +157,40 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
               const rowKey = accId !== 'ID Desconhecido' ? accId : `unknown-${index}`;
 
               return (
-                <TableRow key={rowKey} className="hover:bg-slate-50">
-                  <TableCell className="font-bold text-slate-800">
-                    <div className="line-clamp-1" title={accountName}>{accountName}</div>
-                    <div className="text-[10px] text-slate-400 font-normal font-mono">{accId}</div>
+                <TableRow key={rowKey} className="hover:bg-muted/50 transition-colors">
+                  <TableCell className="font-semibold text-sm">
+                    <div className="line-clamp-1 py-1" title={accountName}>{accountName}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">{accId}</div>
                   </TableCell>
-                  <TableCell className="text-right">{fmtCurrency(row.investimento)}</TableCell>
-                  <TableCell className="text-right">{row.compras}</TableCell>
-                  <TableCell className="text-right">{row.leads}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtCurrency(cpl)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtCurrency(cpc)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtCurrency(cpr)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtCurrency(cpm)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtDec(freq)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtInt(row.impressoes)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{fmtInt(row.clicks)}</TableCell>
-                  <TableCell className={cn("text-right font-bold", (row.saldo_atual || 0) < 100 ? "text-red-600" : "text-emerald-700")}>{fmtCurrency(row.saldo_atual || 0)}</TableCell>
+                  <TableCell className="text-right text-xs font-medium">{fmtCurrency(row.investimento)}</TableCell>
+                  <TableCell className="text-right text-xs">{row.compras}</TableCell>
+                  <TableCell className="text-right text-xs">{row.leads}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtCurrency(cpl)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtCurrency(cpc)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtCurrency(cpr)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtCurrency(cpm)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtDec(freq)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtInt(row.impressoes)}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">{fmtInt(row.clicks)}</TableCell>
+                  <TableCell className={cn("text-right text-xs font-bold", (row.saldo_atual || 0) < 100 ? "text-destructive" : "text-emerald-600")}>{fmtCurrency(row.saldo_atual || 0)}</TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
-          <TableFooter className="bg-slate-100 font-bold border-t-2 border-slate-300">
+          <TableFooter className="bg-muted/50 font-bold border-t">
             <TableRow>
-              <TableCell>Total ({totals.count})</TableCell>
-              <TableCell className="text-right">{fmtCurrency(totals.investimento)}</TableCell>
-              <TableCell className="text-right">{totals.compras}</TableCell>
-              <TableCell className="text-right">{totals.leads}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(avgCpl)}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(avgCpc)}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(avgCpr)}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(avgCpm)}</TableCell>
-              <TableCell className="text-right">{fmtDec(avgFreq)}</TableCell>
-              <TableCell className="text-right">{fmtInt(totals.impressoes)}</TableCell>
-              <TableCell className="text-right">{fmtInt(totals.clicks)}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(metrics?.totalBalance || 0)}</TableCell>
+              <TableCell className="text-xs">Total ({totals.count})</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(totals.investimento)}</TableCell>
+              <TableCell className="text-right text-xs">{totals.compras}</TableCell>
+              <TableCell className="text-right text-xs">{totals.leads}</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(avgCpl)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(avgCpc)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(avgCpr)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(avgCpm)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtDec(avgFreq)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtInt(totals.impressoes)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtInt(totals.clicks)}</TableCell>
+              <TableCell className="text-right text-xs">{fmtCurrency(metrics?.totalBalance || 0)}</TableCell>
             </TableRow>
           </TableFooter>
         </Table>
