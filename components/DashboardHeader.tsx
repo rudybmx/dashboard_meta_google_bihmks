@@ -25,6 +25,7 @@ interface DashboardHeaderProps {
   metaAccounts: any[];
   userRole?: string;
   assignedAccountIds?: string[]; // RBAC: User's assigned account IDs
+  assignedClusterIds?: string[]; // RBAC: User's assigned cluster IDs
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -39,11 +40,23 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   metaAccounts,
   userRole,
   assignedAccountIds,
+  assignedClusterIds,
   selectedCluster,
   setSelectedCluster
 }) => {
   const { data: clusters = [] } = useClusters();
   const [open, setOpen] = React.useState(false);
+
+  const filteredClusters = useMemo(() => {
+    // Documentação de Hierarquia de Acesso (RBAC):
+    // A nova hierarquia de acesso segue o fluxo: User -> Clusters -> Accounts.
+    // 1. Usuários recebem permissão de visualizar Clusters (Grupos).
+    // 2. A partir da seleção do Cluster, visualizam as Contas (Accounts).
+    // Se o usuário não for admin e não tiver grupos, retorna vazio (ocultando o seletor).
+    if (userRole === 'admin' || userRole === 'executive') return clusters;
+    if (!assignedClusterIds || assignedClusterIds.length === 0) return [];
+    return clusters.filter(c => assignedClusterIds.includes(c.id));
+  }, [clusters, userRole, assignedClusterIds]);
 
   // 1. Prepare Franchise Options - REMOVED
 
@@ -143,7 +156,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
 
         {/* 1.5 Agrupamento */}
-        {clusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
+        {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
           <div className="w-[200px]">
             <Select
               placeholder="Agrupamento"
@@ -151,7 +164,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               onChange={(e) => setSelectedCluster(e.target.value)}
               options={[
                 { value: 'ALL', label: 'Todos os agrupamentos' },
-                ...clusters.map(c => ({ value: c.id, label: c.name }))
+                ...filteredClusters.map(c => ({ value: c.id, label: c.name }))
               ]}
             />
           </div>

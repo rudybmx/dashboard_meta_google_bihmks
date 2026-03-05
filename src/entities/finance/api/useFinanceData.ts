@@ -16,11 +16,11 @@ const getUserEmail = (): string | null => {
     }
 };
 
-export const useFinanceData = () => {
+export const useFinanceData = (injectedAccountIds?: string[]) => {
     const { dateRange, selectedAccounts, selectedCluster } = useFilters();
 
     return useQuery<ConsolidatedMetrics, Error>({
-        queryKey: ['finance_data', dateRange?.start, dateRange?.end, selectedAccounts, selectedCluster],
+        queryKey: ['finance_data', dateRange?.start, dateRange?.end, selectedAccounts, selectedCluster, injectedAccountIds],
         queryFn: async () => {
             if (!dateRange?.start || !dateRange?.end) {
                 return summarizeMetrics([]);
@@ -28,7 +28,9 @@ export const useFinanceData = () => {
 
             let accountFilter: string[] | null = null;
 
-            if (selectedAccounts.length > 0 && !selectedAccounts.includes('ALL')) {
+            if (injectedAccountIds && injectedAccountIds.length > 0) {
+                accountFilter = injectedAccountIds.includes('NONE') ? ['NONE'] : injectedAccountIds;
+            } else if (selectedAccounts.length > 0 && !selectedAccounts.includes('ALL')) {
                 accountFilter = selectedAccounts;
             } else if (selectedCluster && selectedCluster !== 'ALL') {
                 const { data: clusterAccs } = await (supabase.from as any)('cluster_accounts').select('account_id').eq('cluster_id', selectedCluster);

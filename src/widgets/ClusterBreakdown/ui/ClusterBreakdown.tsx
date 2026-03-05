@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useFinanceData } from '@/src/entities/finance';
+import { calculateCPL } from '@/src/entities/finance/lib/calculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/shared/ui/table";
 import { Skeleton } from '@/src/shared/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -16,12 +17,18 @@ export const ClusterBreakdown: React.FC = () => {
         return metrics.rawData.map((row: any) => {
             const accId = row.meta_account_id || row.account_id || 'ID Desconhecido';
             const accountName = row.nome_conta && row.nome_conta.trim() !== '' ? row.nome_conta : `Conta ${accId}`;
-            const cpl = row.cpl_total ?? (row.leads > 0 ? row.investimento / row.leads : 0);
+
+            const spend = row.investimento || 0;
+            const rowLeads = row.leads || 0;
+
+            const unifiedLeads = rowLeads;
+            const cpl = calculateCPL(spend, rowLeads);
+
             return {
                 name: accountName,
                 cpl,
-                investimento: row.investimento || 0,
-                leads: row.leads || 0,
+                investimento: spend,
+                leads: unifiedLeads,
                 id: accId
             };
         }).sort((a, b) => b.investimento - a.investimento); // Sort by spend
@@ -88,7 +95,7 @@ export const ClusterBreakdown: React.FC = () => {
                             <TableRow>
                                 <TableHead>Unidade</TableHead>
                                 <TableHead className="text-right">Investimento</TableHead>
-                                <TableHead className="text-right">Leads</TableHead>
+                                <TableHead className="text-right">Resultados</TableHead>
                                 <TableHead className="text-right">CPL</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -99,7 +106,7 @@ export const ClusterBreakdown: React.FC = () => {
                                         {row.name}
                                     </TableCell>
                                     <TableCell className="text-right text-xs text-slate-600">{fmtCurrency(row.investimento)}</TableCell>
-                                    <TableCell className="text-right text-xs text-slate-600">{fmtInt(row.leads)}</TableCell>
+                                    <TableCell className="text-right text-xs text-slate-600 font-bold text-indigo-600">{fmtInt(row.leads)}</TableCell>
                                     <TableCell className="text-right text-xs font-semibold text-slate-700">{fmtCurrency(row.cpl)}</TableCell>
                                 </TableRow>
                             ))}

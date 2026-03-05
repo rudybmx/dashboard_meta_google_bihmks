@@ -63,6 +63,7 @@ export default function App() {
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<any[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
+  const [effectiveAccountIds, setEffectiveAccountIds] = useState<string[]>([]);
 
   // Filter States - Managed by FSD Context now
   const { selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange } = useFilters();
@@ -88,6 +89,7 @@ export default function App() {
     isAdmin,
     isClient,
     allowedAccountIds,
+    allowedClusterIds,
     filterAccountsByAccess
   } = useUserAccess(userProfile);
 
@@ -175,30 +177,34 @@ export default function App() {
         // Client: usa allowedAccountIds (assigned_account_ids do perfil)
         let effectiveAccountIds: string[] = [];
 
+        const visibleAllowedIds = filteredAccounts.map(a => a.account_id);
+
         if (selectedAccounts && selectedAccounts.length > 0) {
-          // Specific accounts selected
-          effectiveAccountIds = selectedAccounts;
+          // Specific accounts selected - must still be visible
+          effectiveAccountIds = selectedAccounts.filter(id => visibleAllowedIds.includes(id));
+          if (effectiveAccountIds.length === 0) effectiveAccountIds = ['NONE'];
         } else if (selectedCluster && selectedCluster !== 'ALL') {
           const { data: clusterAccs } = await (supabase.from as any)('cluster_accounts').select('account_id').eq('cluster_id', selectedCluster);
           const clusterAccountIds = clusterAccs?.map((a: any) => a.account_id) || [];
-          effectiveAccountIds = isAdmin ? clusterAccountIds : clusterAccountIds.filter(id => allowedAccountIds.includes(id));
+
+          // Intersect cluster accounts with visible and allowed accounts
+          effectiveAccountIds = clusterAccountIds.filter((id: string) => visibleAllowedIds.includes(id));
 
           if (effectiveAccountIds.length === 0) {
             // Se o cluster não tem contas ou o usuário não tem permissão para testá-las
-            // Adicionalmente podemos usar numérico inválido ou 'NONE' para garantir vazio
             effectiveAccountIds = ['NONE'];
           }
-        } else if (isAdmin) {
-          // Admin: "ALL" or no selection → all loaded account IDs
-          effectiveAccountIds = filteredAccounts.map(a => a.account_id);
         } else {
-          // Client: "ALL" or no selection → only their assigned accounts
-          effectiveAccountIds = allowedAccountIds;
+          // Default: All Allowed and Visible Accounts
+          effectiveAccountIds = visibleAllowedIds;
+          if (effectiveAccountIds.length === 0) effectiveAccountIds = ['NONE'];
         }
 
+        setEffectiveAccountIds(effectiveAccountIds);
+
         // For RPCs that still use franchise/account params (KPI, Summary)
-        const serviceAccountFilter = selectedAccounts && selectedAccounts.length > 0
-          ? selectedAccounts
+        const serviceAccountFilter = effectiveAccountIds.length > 0 && effectiveAccountIds[0] !== 'NONE'
+          ? effectiveAccountIds
           : [];
 
         logger.info('Loading dashboard data:', {
@@ -388,6 +394,7 @@ export default function App() {
               metaAccounts={availableAccounts}
               userRole={userProfile?.role}
               assignedAccountIds={allowedAccountIds}
+              assignedClusterIds={allowedClusterIds}
             />
           )}
         </header>
@@ -407,34 +414,14 @@ export default function App() {
                   allowedAccounts={allowedAccountIds}
                   externalSummaryData={summaryData}
                   externalLoading={loading && !isDataLoaded}
+                  effectiveAccountIds={effectiveAccountIds}
                 />
               )}
               {activeView === 'planning' && <PlanningDashboardView allowedFranchises={availableFranchises.map(f => f.name)} userRole={userProfile?.role} />}
               {activeView === 'dashboard' && (
                 <ManagerialView
                   dateRange={dateRange}
-                  accountIds={(() => {
-                    // Logic reused from loadData to determining effective Account IDs
-
-                    if (selectedAccounts.length === 0 || selectedAccounts.includes('ALL')) {
-                      // Allow 'ALL' to signify "All accessible accounts"
-                      // Admin: all visible (use availableAccounts.map(id))
-                      // Client: allowedAccountIds
-
-                      if (!userProfile) return [];
-                      if (userProfile.role === 'admin') {
-                        return metaAccounts.map(a => a.account_id);
-                      } else {
-                        return allowedAccountIds;
-                      }
-                    } else if (selectedAccounts.length > 0) {
-                      return selectedAccounts.map(id => id.replace(/^act_/i, ''));
-                    } else if (userProfile?.role !== 'admin') {
-                      // Fallback client
-                      return allowedAccountIds;
-                    }
-                    return []; // Admin no selection -> empty?
-                  })()}
+                  accountIds={effectiveAccountIds}
                 />
 
               )}

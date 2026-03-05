@@ -136,7 +136,7 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
     // Aggregate values
     const spend = Number(row.valor_gasto || 0);
     const impressions = Number(row.impressoes || 0);
-    const leads = Number(row.msgs_iniciadas || 0);
+    const leads = Number(row.leads_total || 0) + Number(row.msgs_iniciadas || 0) + Number(row.compras || 0);
     const clicks = Number(row.cliques_todos || 0);
     const purchases = Number(row.compras || 0);
 

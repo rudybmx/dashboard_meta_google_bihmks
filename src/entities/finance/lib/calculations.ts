@@ -1,11 +1,17 @@
 import { RawFinanceData, ConsolidatedMetrics } from '../model/types';
 
-/**
- * Ensures CPL is calculated safely without division by zero.
- */
 export const calculateCPL = (spend: number, leads: number): number => {
     if (leads <= 0) return 0;
     return spend / leads;
+};
+
+/**
+ * Calculates efficiency: The percentage difference between unit CPL and the average CPL.
+ * Negative difference means the unit is cheaper (more efficient).
+ */
+export const calculateEfficiency = (unitCpl: number, averageCpl: number): number => {
+    if (averageCpl === 0 || unitCpl === 0) return 0;
+    return ((unitCpl - averageCpl) / averageCpl) * 100;
 };
 
 /**
@@ -16,6 +22,7 @@ export const summarizeMetrics = (data: RawFinanceData[]): ConsolidatedMetrics =>
         (acc, row) => {
             acc.spend += row.investimento || 0;
             acc.leads += row.leads || 0;
+
             acc.leads_cadastro += row.leads_cadastro || 0;
             acc.purchases += row.compras || 0;
             acc.conversations += row.conversas || 0;

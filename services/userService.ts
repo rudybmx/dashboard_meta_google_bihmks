@@ -34,10 +34,11 @@ const syncAccountAccess = async (userEmail: string, accountIds: string[]): Promi
 };
 
 export const fetchUsers = async (): Promise<UserProfile[]> => {
-  const { data, error } = await supabase
+  const { data: rawData, error } = await supabase
     .from(TABLE_USERS)
-    .select('id, email, nome, role, assigned_account_ids, created_at')
-    .order('created_at', { ascending: false });
+    .select('id, email, nome, role, assigned_account_ids, assigned_cluster_ids, created_at')
+    .order('created_at', { ascending: false }) as any;
+  const data = rawData;
 
   if (error) {
     console.error('Error fetching users:', error);
@@ -50,6 +51,7 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
     name: row.nome,
     role: row.role,
     assigned_account_ids: row.assigned_account_ids || [],
+    assigned_cluster_ids: row.assigned_cluster_ids || [],
     created_at: row.created_at,
   })) as UserProfile[];
 };
@@ -61,13 +63,15 @@ export const createUser = async (userData: UserFormData): Promise<UserProfile | 
     role: userData.role,              // 'admin' ou 'client'
     password: userData.password,      // texto simples, você controla
     assigned_account_ids: userData.assigned_account_ids || [],
+    assigned_cluster_ids: userData.assigned_cluster_ids || [],
   };
 
-  const { data, error } = await supabase
+  const { data: rawData, error } = await supabase
     .from(TABLE_USERS)
     .insert(payload)
-    .select('id, email, nome, role, assigned_account_ids, created_at')
-    .single();
+    .select('id, email, nome, role, assigned_account_ids, assigned_cluster_ids, created_at')
+    .single() as any;
+  const data = rawData;
 
   if (error) {
     console.error('Error creating user:', error);
@@ -85,6 +89,7 @@ export const createUser = async (userData: UserFormData): Promise<UserProfile | 
     name: data.nome,
     role: data.role,
     assigned_account_ids: data.assigned_account_ids || [],
+    assigned_cluster_ids: data.assigned_cluster_ids || [],
     created_at: data.created_at,
   } as UserProfile;
 };
@@ -94,14 +99,16 @@ export const updateUser = async (id: string, updates: Partial<UserFormData>): Pr
     nome: updates.name,
     role: updates.role,
     assigned_account_ids: updates.assigned_account_ids || [],
+    assigned_cluster_ids: updates.assigned_cluster_ids || [],
   };
 
-  const { data, error } = await supabase
+  const { data: rawData, error } = await supabase
     .from(TABLE_USERS)
     .update(payload)
     .eq('id', id)
-    .select('id, email, nome, role, assigned_account_ids, created_at')
-    .single();
+    .select('id, email, nome, role, assigned_account_ids, assigned_cluster_ids, created_at')
+    .single() as any;
+  const data = rawData;
 
   if (error) {
     console.error('Error updating user:', error);
@@ -117,6 +124,7 @@ export const updateUser = async (id: string, updates: Partial<UserFormData>): Pr
     name: data.nome,
     role: data.role,
     assigned_account_ids: data.assigned_account_ids || [],
+    assigned_cluster_ids: data.assigned_cluster_ids || [],
     created_at: data.created_at,
   } as UserProfile;
 };

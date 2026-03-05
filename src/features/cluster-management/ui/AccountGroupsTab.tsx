@@ -12,6 +12,7 @@ export const AccountGroupsTab: React.FC = () => {
     const [newGroupName, setNewGroupName] = useState('');
     const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Derived selected cluster
     const selectedCluster = clusters.find(c => c.id === selectedClusterId);
@@ -112,38 +113,74 @@ export const AccountGroupsTab: React.FC = () => {
                 <div className="flex-1 flex flex-col bg-white">
                     {selectedCluster ? (
                         <>
-                            <div className="p-6 border-b border-slate-100">
-                                <h3 className="text-lg font-bold text-slate-800">Contas do grupo: {selectedCluster.name}</h3>
-                                <p className="text-sm text-slate-500">Selecione as contas que pertencem a este grupo.</p>
+                            <div className="p-6 border-b border-slate-100 flex flex-col gap-4">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-800">Contas do grupo: {selectedCluster.name}</h3>
+                                    <p className="text-sm text-slate-500">Selecione as contas que pertencem a este grupo.</p>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nome ou ID..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                    <div className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-sm font-medium rounded-full shrink-0">
+                                        {linkedAccountIds.length} contas selecionadas
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6">
+                            <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
                                 {isLoadingAccounts ? (
                                     <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin text-slate-400" /></div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {accounts.filter(a => a.status !== 'removed' && a.client_visibility !== false).map(account => {
-                                            const isLinked = linkedAccountIds.includes(account.account_id);
-                                            return (
-                                                <div
-                                                    key={account.account_id}
-                                                    onClick={() => handleToggleAccount(account.account_id)}
-                                                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isLinked ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-200 hover:border-indigo-300'}`}
-                                                >
-                                                    {isLinked ? (
-                                                        <CheckSquare className="text-indigo-600" size={18} />
-                                                    ) : (
-                                                        <Square className="text-slate-300" size={18} />
-                                                    )}
-                                                    <div className="min-w-0">
-                                                        <p className={`text-sm font-medium truncate ${isLinked ? 'text-indigo-900' : 'text-slate-700'}`}>
-                                                            {(account as any).nome_ajustado || (account as any).nome_original}
-                                                        </p>
-                                                        <p className="text-xs text-slate-400 truncate">{account.account_id}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {accounts
+                                            .filter(a => a.status !== 'removed' && a.client_visibility !== false)
+                                            .filter(a => {
+                                                const search = searchTerm.toLowerCase();
+                                                const name1 = ((a as any).nome_ajustado || '').toLowerCase();
+                                                const name2 = ((a as any).nome_original || '').toLowerCase();
+                                                const name3 = ((a as any).display_name || '').toLowerCase();
+                                                const name4 = ((a as any).account_name || '').toLowerCase();
+                                                const id = (a.account_id || '').toLowerCase();
+
+                                                return search === '' ||
+                                                    name1.includes(search) ||
+                                                    name2.includes(search) ||
+                                                    name3.includes(search) ||
+                                                    name4.includes(search) ||
+                                                    id.includes(search);
+                                            })
+                                            .map(account => {
+                                                const isLinked = linkedAccountIds.includes(account.account_id);
+                                                const displayName = (account as any).nome_ajustado || (account as any).display_name || (account as any).nome_original || (account as any).account_name || 'Conta sem nome';
+
+                                                return (
+                                                    <div
+                                                        key={account.account_id}
+                                                        onClick={() => handleToggleAccount(account.account_id)}
+                                                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isLinked ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
+                                                    >
+                                                        <div className="mt-0.5">
+                                                            {isLinked ? (
+                                                                <CheckSquare className="text-indigo-600" size={18} />
+                                                            ) : (
+                                                                <Square className="text-slate-300" size={18} />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className={`text-sm font-medium line-clamp-2 leading-tight ${isLinked ? 'text-indigo-900' : 'text-slate-700'}`} title={displayName}>
+                                                                {displayName}
+                                                            </p>
+                                                            <p className="text-xs text-slate-400 font-mono mt-1 break-all">{account.account_id}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
                                     </div>
                                 )}
                             </div>

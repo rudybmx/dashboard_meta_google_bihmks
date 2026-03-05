@@ -1,34 +1,37 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  Search, 
-  User, 
-  Shield, 
-  Mail, 
-  Store, 
-  LayoutList,
-  Edit,
-  X,
-  Check,
-  AlertCircle,
-  Loader2,
-  Lock
+import {
+    Plus,
+    Trash2,
+    Search,
+    User,
+    Shield,
+    Mail,
+    Store,
+    LayoutList,
+    Edit,
+    X,
+    Check,
+    AlertCircle,
+    Loader2,
+    Lock
 } from 'lucide-react';
 import * as userService from '../services/userService';
 import { UserProfile, UserFormData, UserRole } from '../types';
 import { useSettingsData } from '../context/SettingsDataContext';
+import { useClusters } from '../src/entities/cluster';
 
 export const UsersSettingsTab: React.FC = () => {
     // Data from Context
-    const { 
-        users, 
+    const {
+        users,
         setUsers,
         accounts,
         usersLoading: loading,
         isDataLoaded,
         refreshUsers
     } = useSettingsData();
+
+    const { data: clustersList = [] } = useClusters();
 
     // Filter/UI States
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +49,7 @@ export const UsersSettingsTab: React.FC = () => {
         email: '',
         role: 'client',
         assigned_account_ids: [],
+        assigned_cluster_ids: [],
         password: ''
     };
     const [formData, setFormData] = useState<UserFormData>(initialFormState);
@@ -59,6 +63,7 @@ export const UsersSettingsTab: React.FC = () => {
                 email: user.email,
                 role: user.role,
                 assigned_account_ids: user.assigned_account_ids || [],
+                assigned_cluster_ids: user.assigned_cluster_ids || [],
                 password: '' // Don't fill password on edit
             });
             setIsEditing(true);
@@ -84,7 +89,7 @@ export const UsersSettingsTab: React.FC = () => {
                 }
             } else {
                 if (!formData.password) throw new Error("Senha é obrigatória para novos usuários.");
-                
+
                 // Validação de Conta para Cliente
                 if (formData.role === 'client' && (!formData.assigned_account_ids || formData.assigned_account_ids.length === 0)) {
                     throw new Error('Selecione pelo menos uma conta permitida para este usuário.');
@@ -97,7 +102,7 @@ export const UsersSettingsTab: React.FC = () => {
                     setFormData(initialFormState); // Reset form only on create success
                 }
             }
-            
+
             setTimeout(() => {
                 setIsModalOpen(false);
                 setFeedback(null);
@@ -113,7 +118,7 @@ export const UsersSettingsTab: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza? O usuário perderá o acesso imediatamente.')) return;
-        
+
         try {
             await userService.deleteUser(id);
             setUsers(prev => prev.filter(u => u.id !== id));
@@ -123,10 +128,10 @@ export const UsersSettingsTab: React.FC = () => {
         }
     };
 
-    const toggleArraySelection = (arrayName: 'assigned_account_ids', value: string, single: boolean = false) => {
+    const toggleArraySelection = (arrayName: 'assigned_account_ids' | 'assigned_cluster_ids', value: string, single: boolean = false) => {
         setFormData(prev => {
             const current = prev[arrayName] || [];
-            
+
             if (single) {
                 return { ...prev, [arrayName]: [value] };
             }
@@ -153,7 +158,7 @@ export const UsersSettingsTab: React.FC = () => {
         try {
             await userService.resetUserPassword(passwordResetData.userId, passwordResetData.newPassword);
             setFeedback({ type: 'success', text: 'Senha alterada com sucesso!' });
-            
+
             setTimeout(() => {
                 setIsPasswordModalOpen(false);
                 setFeedback(null);
@@ -161,19 +166,19 @@ export const UsersSettingsTab: React.FC = () => {
             }, 1500);
 
         } catch (err: any) {
-             setFeedback({ type: 'error', text: err.message });
+            setFeedback({ type: 'error', text: err.message });
         } finally {
-             setSubmitting(false);
+            setSubmitting(false);
         }
     };
 
-    const filteredUsers = users.filter(u => 
-        u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredUsers = users.filter(u =>
+        u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const getRoleBadge = (role: UserRole) => {
-        switch(role) {
+        switch (role) {
             case 'admin': return <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold border border-purple-200">Admin</span>;
             case 'client': return <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-bold border border-orange-200">Cliente / Franqueado</span>;
             default: return <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-bold">User</span>;
@@ -184,9 +189,17 @@ export const UsersSettingsTab: React.FC = () => {
         if (user.role === 'admin') {
             return <span className="text-slate-400 italic text-xs">Acesso Total</span>;
         }
-        const count = user.assigned_account_ids?.length || 0;
-        if (count === 0) return <span className="text-red-400 text-xs">Sem contas vinculadas</span>;
-        return <span className="text-slate-600 text-xs">{count} Conta(s) de Anúncio</span>;
+        const accCount = user.assigned_account_ids?.length || 0;
+        const clsCount = user.assigned_cluster_ids?.length || 0;
+
+        if (accCount === 0 && clsCount === 0) return <span className="text-red-400 text-xs">Sem acessos vinculados</span>;
+
+        return (
+            <div className="flex flex-col gap-0.5">
+                {clsCount > 0 && <span className="text-slate-600 text-xs">{clsCount} Agrupamento(s)</span>}
+                {accCount > 0 && <span className="text-slate-600 text-xs">{accCount} Conta(s)</span>}
+            </div>
+        );
     };
 
 
@@ -196,29 +209,29 @@ export const UsersSettingsTab: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
+
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
                 <div>
-                   <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                       <Shield className="text-indigo-600" />
-                       Gerenciamento de Usuários
-                   </h1>
-                   <p className="text-slate-500 text-sm">Controle de acesso (RBAC) e permissões do sistema.</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <Shield className="text-indigo-600" />
+                        Gerenciamento de Usuários
+                    </h1>
+                    <p className="text-slate-500 text-sm">Controle de acesso (RBAC) e permissões do sistema.</p>
                 </div>
 
                 <div className="flex gap-3 w-full md:w-auto">
                     <div className="relative group flex-1 md:w-64">
-                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                         <input 
-                            type="text" 
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+                        <input
+                            type="text"
                             placeholder="Buscar nome ou email..."
                             className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                         />
+                        />
                     </div>
-                    <button 
+                    <button
                         onClick={() => handleOpenModal()}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
                     >
@@ -266,21 +279,21 @@ export const UsersSettingsTab: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
+                                            <button
                                                 onClick={() => handleOpenPasswordModal(user)}
                                                 className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
                                                 title="Trocar Senha"
                                             >
                                                 <Lock size={16} />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => handleOpenModal(user)}
                                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                                                 title="Editar"
                                             >
                                                 <Edit size={16} />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => handleDelete(user.id)}
                                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                 title="Excluir"
@@ -317,8 +330,8 @@ export const UsersSettingsTab: React.FC = () => {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo</label>
-                                        <input 
-                                            required 
+                                        <input
+                                            required
                                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
                                             value={formData.name}
                                             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -327,8 +340,8 @@ export const UsersSettingsTab: React.FC = () => {
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email de Acesso</label>
-                                        <input 
-                                            required 
+                                        <input
+                                            required
                                             type="email"
                                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
                                             value={formData.email}
@@ -339,7 +352,7 @@ export const UsersSettingsTab: React.FC = () => {
                                     {!isEditing && (
                                         <div>
                                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha Provisória</label>
-                                            <input 
+                                            <input
                                                 required={!isEditing}
                                                 type="password"
                                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
@@ -352,15 +365,16 @@ export const UsersSettingsTab: React.FC = () => {
                                 </div>
                                 <div className="space-y-4">
                                     {/* Simplified Role Select */}
-                                     <div>
+                                    <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nível de Acesso (Role)</label>
-                                        <select 
+                                        <select
                                             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm bg-white"
                                             value={formData.role}
-                                            onChange={e => setFormData(prev => ({ 
-                                                ...prev, 
-                                                role: e.target.value as UserRole, 
-                                                assigned_account_ids: [] 
+                                            onChange={e => setFormData(prev => ({
+                                                ...prev,
+                                                role: e.target.value as UserRole,
+                                                assigned_account_ids: [],
+                                                assigned_cluster_ids: []
                                             }))}
                                         >
                                             <option value="client">Cliente / Franqueado (Contas Específicas)</option>
@@ -368,52 +382,81 @@ export const UsersSettingsTab: React.FC = () => {
                                         </select>
                                     </div>
 
-                                    {/* Conditional Account Select for Clients */}
+                                    {/* Conditional Select for Clients */}
                                     {formData.role === 'client' && (
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 max-h-64 flex flex-col">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs font-bold text-indigo-600 uppercase flex items-center gap-1">
-                                                    <LayoutList size={14} /> Contas Permitidas
-                                                </label>
-                                                <div className="relative w-1/2">
-                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                                                    <input 
-                                                        type="text"
-                                                        placeholder="Filtrar contas..."
-                                                        className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:border-indigo-500"
-                                                        value={accountSearchTerm}
-                                                        onChange={e => setAccountSearchTerm(e.target.value)}
-                                                    />
+                                        <div className="space-y-4">
+                                            {/* Cluster Select */}
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 max-h-64 flex flex-col">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-bold text-indigo-600 uppercase flex items-center gap-1">
+                                                        <LayoutList size={14} /> Agrupamentos Permitidos
+                                                    </label>
+                                                </div>
+                                                <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+                                                    {clustersList.length === 0 ? <p className="text-xs text-slate-400">Nenhum agrupamento cadastrado.</p> : (
+                                                        <div className="space-y-2">
+                                                            {clustersList.map((cluster: any) => (
+                                                                <label key={cluster.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:text-indigo-600">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={(formData.assigned_cluster_ids || []).includes(cluster.id)}
+                                                                        onChange={() => toggleArraySelection('assigned_cluster_ids', cluster.id, false)}
+                                                                        className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                                                                    />
+                                                                    <span className="truncate">{cluster.name}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                            
-                                            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
-                                                {accounts.length === 0 ? <p className="text-xs text-slate-400">Nenhuma conta disponível.</p> : (
-                                                    <div className="space-y-2">
-                                                        {accounts
-                                                            .filter(acc => acc.account_name.toLowerCase().includes(accountSearchTerm.toLowerCase()))
-                                                            .map(acc => (
-                                                            <label key={acc.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:text-indigo-600">
-                                                                <input 
-                                                                    type="checkbox"
-                                                                    checked={formData.assigned_account_ids.includes(acc.id)}
-                                                                    onChange={() => toggleArraySelection('assigned_account_ids', acc.id, false)}
-                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                                                                />
-                                                                <span className="truncate">{acc.account_name}</span>
-                                                            </label>
-                                                        ))}
-                                                        {accounts.filter(acc => acc.account_name.toLowerCase().includes(accountSearchTerm.toLowerCase())).length === 0 && (
-                                                            <p className="text-xs text-slate-400 py-2 text-center">Nenhuma conta encontrada para "{accountSearchTerm}"</p>
-                                                        )}
+
+                                            {/* Account Select */}
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 max-h-64 flex flex-col">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-bold text-indigo-600 uppercase flex items-center gap-1">
+                                                        <LayoutList size={14} /> Contas Permitidas
+                                                    </label>
+                                                    <div className="relative w-1/2">
+                                                        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Filtrar contas..."
+                                                            className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:border-indigo-500"
+                                                            value={accountSearchTerm}
+                                                            onChange={e => setAccountSearchTerm(e.target.value)}
+                                                        />
                                                     </div>
-                                                )}
+                                                </div>
+
+                                                <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+                                                    {accounts.length === 0 ? <p className="text-xs text-slate-400">Nenhuma conta disponível.</p> : (
+                                                        <div className="space-y-2">
+                                                            {accounts
+                                                                .filter(acc => acc.account_name.toLowerCase().includes(accountSearchTerm.toLowerCase()))
+                                                                .map(acc => (
+                                                                    <label key={acc.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:text-indigo-600">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={formData.assigned_account_ids.includes(acc.id)}
+                                                                            onChange={() => toggleArraySelection('assigned_account_ids', acc.id, false)}
+                                                                            className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                                                                        />
+                                                                        <span className="truncate">{acc.account_name}</span>
+                                                                    </label>
+                                                                ))}
+                                                            {accounts.filter(acc => acc.account_name.toLowerCase().includes(accountSearchTerm.toLowerCase())).length === 0 && (
+                                                                <p className="text-xs text-slate-400 py-2 text-center">Nenhuma conta encontrada para "{accountSearchTerm}"</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            
+
                             {/* Feedback Message */}
                             {feedback && (
                                 <div className={`mb-4 p-3 rounded-xl text-sm font-medium flex items-center gap-2 animate-in slide-in-from-top-2 ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
@@ -424,7 +467,7 @@ export const UsersSettingsTab: React.FC = () => {
 
                             {/* Footer */}
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button 
+                                <button
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setIsModalOpen(false)}
@@ -432,7 +475,7 @@ export const UsersSettingsTab: React.FC = () => {
                                 >
                                     Cancelar
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={submitting}
                                     className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-500/20 font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:shadow-none"
@@ -466,8 +509,8 @@ export const UsersSettingsTab: React.FC = () => {
                                     Digite a nova senha para o usuário. Esta ação não pode ser desfeita.
                                 </p>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nova Senha</label>
-                                <input 
-                                    required 
+                                <input
+                                    required
                                     type="password"
                                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all text-sm"
                                     value={passwordResetData.newPassword}
@@ -485,7 +528,7 @@ export const UsersSettingsTab: React.FC = () => {
                             )}
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button 
+                                <button
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setIsPasswordModalOpen(false)}
@@ -493,7 +536,7 @@ export const UsersSettingsTab: React.FC = () => {
                                 >
                                     Cancelar
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={submitting}
                                     className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg shadow-amber-500/20 font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:shadow-none"

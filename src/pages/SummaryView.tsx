@@ -8,6 +8,7 @@ import { MainCharts } from '@/src/widgets/MainCharts';
 import { useFilters } from '@/src/features/filters';
 import { useClusters } from '@/src/entities/cluster';
 import { ClusterBreakdown } from '@/src/widgets/ClusterBreakdown';
+import { ClusterRanking } from '@/src/widgets/ClusterRanking';
 
 type SortDirection = 'asc' | 'desc';
 interface SortConfig {
@@ -19,8 +20,20 @@ const fmtCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: '
 const fmtInt = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
 const fmtDec = (value: number) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-export const SummaryView: React.FC = () => {
-  const { data: metrics, isLoading, isError, error } = useFinanceData();
+interface SummaryViewProps {
+  data: any[];
+  selectedFranchisee: string;
+  selectedClient?: string;
+  dateRange: any;
+  allowedFranchises: string[];
+  allowedAccounts: string[];
+  externalSummaryData: any[];
+  externalLoading: boolean;
+  effectiveAccountIds?: string[];
+}
+
+export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds }) => {
+  const { data: metrics, isLoading, isError, error } = useFinanceData(effectiveAccountIds);
   const { selectedCluster, selectedAccounts } = useFilters();
   const { data: clustersList } = useClusters();
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'investimento', direction: 'desc' });
@@ -102,7 +115,10 @@ export const SummaryView: React.FC = () => {
       <KPISection />
 
       {selectedCluster && selectedCluster !== 'ALL' && (
-        <ClusterBreakdown />
+        <div className="space-y-6 mt-8">
+          <ClusterRanking />
+          <ClusterBreakdown />
+        </div>
       )}
 
       <div className="mt-8 mb-8">

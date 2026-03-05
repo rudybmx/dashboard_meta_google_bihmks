@@ -7,14 +7,15 @@ import { WeeklyTrendsWidget } from '../../components/WeeklyTrendsWidget';
 import { ObjectivesPerformanceWidget } from '../../components/ObjectivesPerformanceWidget';
 import { TopCreativesWidget } from '../../components/TopCreativesWidget';
 import { KPISection } from '@/src/widgets/KPISection';
-import { useFilters } from '@/src/features/filters';
-
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
-export const ManagerialView: React.FC = () => {
-    const { selectedAccounts, dateRange } = useFilters();
-    const accountIds = selectedAccounts.length > 0 && !selectedAccounts.includes('ALL') ? selectedAccounts : [];
+interface ManagerialViewProps {
+    dateRange: any;
+    accountIds: string[];
+}
+
+export const ManagerialView: React.FC<ManagerialViewProps> = ({ dateRange, accountIds }) => {
 
     // Balance (Date Independent)
     const { balance: totalBalance, loading: balanceLoading } = useAvailableBalance(accountIds);

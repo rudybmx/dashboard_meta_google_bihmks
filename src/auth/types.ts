@@ -6,6 +6,7 @@ export interface UserProfile {
     name: string;
     role: UserRole;
     assigned_account_ids: string[];   // IDs das contas Meta
+    assigned_cluster_ids?: string[];  // IDs dos agrupamentos (clusters)
     permissions?: string[];
     created_at?: string;
 }

@@ -55,10 +55,6 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     const setSelectedAccounts = (accounts: string[]) => {
         setSelectedAccountsState(accounts);
         localStorage.setItem('op7_account_filter', JSON.stringify(accounts));
-        if (selectedCluster !== 'ALL') {
-            setSelectedClusterState('ALL');
-            localStorage.setItem('op7_cluster_filter', 'ALL');
-        }
     };
 
     const setSelectedCluster = (cluster: string) => {
