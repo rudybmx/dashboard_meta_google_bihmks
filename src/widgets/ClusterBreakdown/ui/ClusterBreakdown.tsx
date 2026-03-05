@@ -74,7 +74,7 @@ export const ClusterBreakdown: React.FC = () => {
                             />
                             <Bar dataKey="cpl" radius={[4, 4, 0, 0]} maxBarSize={50}>
                                 {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill="hsl(var(--chart-2))" />
+                                    <Cell key={`cell-${index}`} fill="#4F46E5" />
                                 ))}
                             </Bar>
                         </BarChart>

@@ -30,7 +30,7 @@ const chartConfig = {
     },
     leads: {
         label: "Leads",
-        color: "hsl(var(--chart-2))",
+        color: "#4F46E5",
     }
 } satisfies ChartConfig;
 
