@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/src/shared/ui/card';
 import { useFinanceData } from '@/src/entities/finance';
 import { Skeleton } from '@/src/shared/ui/skeleton';
 
-export const KPISection: React.FC = () => {
-    const { data, isLoading, isError, error } = useFinanceData();
+export const KPISection: React.FC<{ accountIds?: string[] }> = ({ accountIds }) => {
+    const { data, isLoading, isError, error } = useFinanceData(accountIds);
 
     if (isLoading) {
         return (

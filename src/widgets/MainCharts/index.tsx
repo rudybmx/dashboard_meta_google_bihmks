@@ -34,8 +34,8 @@ const chartConfig = {
     }
 } satisfies ChartConfig;
 
-export const MainCharts: React.FC = () => {
-    const { data, isLoading, isError } = useFinanceData();
+export const MainCharts: React.FC<{ accountIds?: string[] }> = ({ accountIds }) => {
+    const { data, isLoading, isError } = useFinanceData(accountIds);
 
     if (isLoading) {
         return (

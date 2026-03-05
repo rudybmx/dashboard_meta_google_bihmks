@@ -179,20 +179,10 @@ export function useDashboardMetrics(filters: DashboardFilter) {
           const msgs = group.reduce((acc, r) => acc + (r.msgs_iniciadas || 0), 0);
           const leadsTotal = group.reduce((acc, r) => acc + (r.leads_total || 0), 0);
 
-          // Each objective shows its OWN primary result as "leads":
-          //   Engajamento/Mensagens → msgs_iniciadas
-          //   Cadastros/Leads → leads_total
-          //   Vendas/Sales/Conversões → compras
+          // Unified Leads Rule: msgs_iniciadas + (leads_total if objective contains 'cadastro' or 'lead', else 0)
           const objLower = objective.toLowerCase();
-          let lds: number;
-          if (objLower.includes('cadastro') || objLower.includes('lead')) {
-            lds = leadsTotal;
-          } else if (objLower.includes('venda') || objLower.includes('sales') || objLower.includes('conve')) {
-            lds = prs;
-          } else {
-            // Engajamento, Tráfego, etc. → msgs_iniciadas
-            lds = msgs;
-          }
+          const isCad = objLower.includes('cadastro') || objLower.includes('lead');
+          const lds = msgs + (isCad ? leadsTotal : 0);
 
           return {
             objective,

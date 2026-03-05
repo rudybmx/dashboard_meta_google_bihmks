@@ -112,7 +112,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
         <p className="text-slate-500">{dashboardSubtitle}</p>
       </div>
 
-      <KPISection />
+      <KPISection accountIds={effectiveAccountIds} />
 
       {selectedCluster && selectedCluster !== 'ALL' && (
         <div className="space-y-6 mt-8">
@@ -122,7 +122,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
       )}
 
       <div className="mt-8 mb-8">
-        <MainCharts />
+        <MainCharts accountIds={effectiveAccountIds} />
       </div>
 
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden mt-8">

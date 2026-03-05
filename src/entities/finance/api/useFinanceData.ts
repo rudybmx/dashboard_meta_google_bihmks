@@ -102,6 +102,8 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
             });
 
             // 5. Populate map with real metrics
+            const seenSaldoAccs = new Set<string>();
+
             (allData || []).forEach((row: any) => {
                 const accId = row.account_id;
 
@@ -111,7 +113,7 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
                         meta_account_id: accId,
                         nome_conta: (row.nome_ajustado?.trim() ? row.nome_ajustado.trim() : null) || (row.account_name?.trim() ? row.account_name.trim() : null) || accId,
                         franquia: row.nome_franqueado || '',
-                        saldo_atual: Number(row.saldo_atual || row.current_balance || 0),
+                        saldo_atual: Number(row.saldo_atual || 0),
                         investimento: 0,
                         leads: 0,
                         leads_cadastro: 0,
@@ -121,6 +123,11 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
                         impressoes: 0,
                         alcance: 0,
                     };
+                    seenSaldoAccs.add(accId);
+                } else if (!seenSaldoAccs.has(accId) && row.saldo_atual !== undefined && row.saldo_atual !== null) {
+                    // Restaura o saldo vindo da View apenas uma vez por conta
+                    rawMap[accId].saldo_atual = Number(row.saldo_atual || 0);
+                    seenSaldoAccs.add(accId);
                 }
 
                 const rowLeadsTotal = Number(row.leads_total || 0);
