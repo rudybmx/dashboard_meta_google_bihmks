@@ -7,6 +7,7 @@ import { WeeklyTrendsWidget } from '../../components/WeeklyTrendsWidget';
 import { ObjectivesPerformanceWidget } from '../../components/ObjectivesPerformanceWidget';
 import { TopCreativesWidget } from '../../components/TopCreativesWidget';
 import { KPISection } from '@/src/widgets/KPISection';
+import { useFilters } from '@/src/features/filters/model/useFilters';
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR').format(val);
 
@@ -16,7 +17,7 @@ interface ManagerialViewProps {
 }
 
 export const ManagerialView: React.FC<ManagerialViewProps> = ({ dateRange, accountIds }) => {
-
+    const { selectedPlatform } = useFilters();
     // Balance (Date Independent)
     const { balance: totalBalance, loading: balanceLoading } = useAvailableBalance(accountIds);
 
@@ -24,7 +25,8 @@ export const ManagerialView: React.FC<ManagerialViewProps> = ({ dateRange, accou
     const { metrics, loading: metricsLoading, error } = useDashboardMetrics({
         startDate: dateRange.start,
         endDate: dateRange.end,
-        accountFilter: accountIds
+        accountFilter: accountIds,
+        platform: selectedPlatform
     });
 
     const isLoading = balanceLoading || metricsLoading;

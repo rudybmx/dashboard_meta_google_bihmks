@@ -10,7 +10,7 @@ export const CampaignsTable: React.FC<Props> = ({ data }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter data based on search query
-  const filteredData = data.filter(row => 
+  const filteredData = data.filter(row =>
     row.campaign_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -30,10 +30,10 @@ export const CampaignsTable: React.FC<Props> = ({ data }) => {
   };
 
   const getPlatformName = (platform: string) => {
-      if (platform === 'facebook') return 'Meta (FB)';
-      if (platform === 'instagram') return 'Instagram';
-      if (platform === 'audience_network') return 'Audience Net';
-      return 'Google';
+    if (platform === 'facebook') return 'Meta (FB)';
+    if (platform === 'instagram') return 'Instagram';
+    if (platform === 'audience_network') return 'Audience Net';
+    return 'Google';
   }
 
   return (
@@ -62,17 +62,32 @@ export const CampaignsTable: React.FC<Props> = ({ data }) => {
               <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Conta</th>
               <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Plataforma</th>
               <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Investimento</th>
-              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Impr.</th>
-              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Leads</th>
+              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Leads Geral</th>
               <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">CPL</th>
+              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Lds. Cadastro</th>
+              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Mensagens</th>
+              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">CTR</th>
+              <th className="py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">CPC</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {displayData.length > 0 ? (
               displayData.map((row) => {
                 // Use Backend CPL
-                const cpl = row.cpl_total || (row.leads_total > 0 ? row.valor_gasto / row.leads_total : 0);
-                
+                const isCadastro = (row.objective || '').toLowerCase().includes('cadastro');
+                const rowLeadsTotal = Number(row.leads_total || 0);
+                const rowConversas = Number(((row as any).conversas !== undefined ? (row as any).conversas : row.msgs_iniciadas) || 0);
+                const rowLeadsCadastro = (row as any).leads_cadastro !== undefined
+                  ? Number((row as any).leads_cadastro)
+                  : (isCadastro ? rowLeadsTotal : 0);
+                const leadsCount = (row as any).leads !== undefined
+                  ? Number((row as any).leads)
+                  : (rowLeadsCadastro + rowConversas + Number(row.compras || 0));
+
+                const cpl = leadsCount > 0 ? row.valor_gasto / leadsCount : 0;
+                const ctr = row.impressoes > 0 ? (row.cliques_todos / row.impressoes) * 100 : 0;
+                const cpc = row.cliques_todos > 0 ? row.valor_gasto / row.cliques_todos : 0;
+
                 return (
                   <tr key={row.unique_id} className="hover:bg-indigo-50/30 transition-colors">
                     <td className="py-4 px-6">
@@ -91,21 +106,30 @@ export const CampaignsTable: React.FC<Props> = ({ data }) => {
                     <td className="py-4 px-6 text-sm font-medium text-slate-800 text-right">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_gasto)}
                     </td>
-                    <td className="py-4 px-6 text-sm text-slate-600 text-right">
-                      {row.impressoes.toLocaleString()}
-                    </td>
                     <td className="py-4 px-6 text-sm font-bold text-orange-600 text-right">
-                      {row.leads_total}
+                      {leadsCount}
                     </td>
                     <td className="py-4 px-6 text-sm text-slate-600 text-right font-medium">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cpl)}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-slate-600 text-right">
+                      {rowLeadsCadastro}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-slate-600 text-right">
+                      {rowConversas}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-slate-600 text-right">
+                      {ctr.toFixed(2)}%
+                    </td>
+                    <td className="py-4 px-6 text-sm text-slate-600 text-right">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cpc)}
                     </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500 text-sm">
+                <td colSpan={10} className="py-8 text-center text-slate-500 text-sm">
                   Nenhuma campanha encontrada para "{searchQuery}"
                 </td>
               </tr>

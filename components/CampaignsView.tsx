@@ -32,9 +32,13 @@ interface AdData {
   spend: number;
   impressions: number;
   leads: number;
+  leads_cadastro: number;
+  conversas: number;
   clicks: number;
   purchases: number;
   cpl: number;
+  ctr: number;
+  cpc: number;
 }
 
 interface AdSetData {
@@ -42,9 +46,13 @@ interface AdSetData {
   spend: number;
   impressions: number;
   leads: number;
+  leads_cadastro: number;
+  conversas: number;
   clicks: number;
   purchases: number;
   cpl: number;
+  ctr: number;
+  cpc: number;
   ads: AdData[];
 }
 
@@ -56,9 +64,13 @@ interface CampaignHierarchy {
   spend: number;
   impressions: number;
   leads: number;
+  leads_cadastro: number;
+  conversas: number;
   clicks: number;
   purchases: number;
   cpl: number;
+  ctr: number;
+  cpc: number;
   adsets: AdSetData[];
 }
 
@@ -81,9 +93,13 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
         spend: 0,
         impressions: 0,
         leads: 0,
+        leads_cadastro: 0,
+        conversas: 0,
         clicks: 0,
         purchases: 0,
         cpl: 0,
+        ctr: 0,
+        cpc: 0,
         adsets: []
       };
     }
@@ -107,9 +123,13 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
         spend: 0,
         impressions: 0,
         leads: 0,
+        leads_cadastro: 0,
+        conversas: 0,
         clicks: 0,
         purchases: 0,
         cpl: 0,
+        ctr: 0,
+        cpc: 0,
         ads: []
       };
       campaign.adsets.push(adset);
@@ -126,9 +146,13 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
         spend: 0,
         impressions: 0,
         leads: 0,
+        leads_cadastro: 0,
+        conversas: 0,
         clicks: 0,
         purchases: 0,
-        cpl: 0
+        cpl: 0,
+        ctr: 0,
+        cpc: 0
       };
       adset.ads.push(ad);
     }
@@ -136,36 +160,59 @@ const buildHierarchy = (data: CampaignData[]): CampaignHierarchy[] => {
     // Aggregate values
     const spend = Number(row.valor_gasto || 0);
     const impressions = Number(row.impressoes || 0);
-    const leads = Number(row.leads_total || 0) + Number(row.msgs_iniciadas || 0) + Number(row.compras || 0);
     const clicks = Number(row.cliques_todos || 0);
     const purchases = Number(row.compras || 0);
 
+    // Business Rules (validated with real data):
+    //   - leads_total only counts as Leads de Cadastro when objective contains "Cadastro"
+    //   - Leads de Mensagem = msgs_iniciadas (all rows)
+    //   - Leads Geral = Mensagens + Leads de Cadastro
+    const isCadastro = (row.objective || '').toLowerCase().includes('cadastro') || (row.objective || '').toLowerCase().includes('lead');
+    const rowLeadsTotal = Number(row.leads_total || 0);
+    const rowConversas = Number(row.msgs_iniciadas || 0);
+    const rowLeadsCadastro = isCadastro ? rowLeadsTotal : 0;
+    const leadsCount = rowConversas + rowLeadsCadastro;
+
     campaign.spend += spend;
     campaign.impressions += impressions;
-    campaign.leads += leads;
+    campaign.leads += leadsCount;
+    campaign.leads_cadastro += rowLeadsCadastro;
+    campaign.conversas += rowConversas;
     campaign.clicks += clicks;
     campaign.purchases += purchases;
 
     adset.spend += spend;
     adset.impressions += impressions;
-    adset.leads += leads;
+    adset.leads += leadsCount;
+    adset.leads_cadastro += rowLeadsCadastro;
+    adset.conversas += rowConversas;
     adset.clicks += clicks;
     adset.purchases += purchases;
 
     ad.spend += spend;
     ad.impressions += impressions;
-    ad.leads += leads;
+    ad.leads += leadsCount;
+    ad.leads_cadastro += rowLeadsCadastro;
+    ad.conversas += rowConversas;
     ad.clicks += clicks;
     ad.purchases += purchases;
   });
 
-  // Calculate CPL for all levels
+  // Calculate Calculated Metrics for all levels
   Object.values(campaigns).forEach(campaign => {
     campaign.cpl = campaign.leads > 0 ? campaign.spend / campaign.leads : 0;
+    campaign.ctr = campaign.impressions > 0 ? (campaign.clicks / campaign.impressions) * 100 : 0;
+    campaign.cpc = campaign.clicks > 0 ? campaign.spend / campaign.clicks : 0;
+
     campaign.adsets.forEach(adset => {
       adset.cpl = adset.leads > 0 ? adset.spend / adset.leads : 0;
+      adset.ctr = adset.impressions > 0 ? (adset.clicks / adset.impressions) * 100 : 0;
+      adset.cpc = adset.clicks > 0 ? adset.spend / adset.clicks : 0;
+
       adset.ads.forEach(ad => {
         ad.cpl = ad.leads > 0 ? ad.spend / ad.leads : 0;
+        ad.ctr = ad.impressions > 0 ? (ad.clicks / ad.impressions) * 100 : 0;
+        ad.cpc = ad.clicks > 0 ? ad.spend / ad.clicks : 0;
       });
     });
   });
@@ -312,9 +359,11 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
     return filteredData.reduce((acc, c) => ({
       spend: acc.spend + c.spend,
       leads: acc.leads + c.leads,
+      leads_cadastro: acc.leads_cadastro + c.leads_cadastro,
+      conversas: acc.conversas + c.conversas,
       impressions: acc.impressions + c.impressions,
       clicks: acc.clicks + c.clicks
-    }), { spend: 0, leads: 0, impressions: 0, clicks: 0 });
+    }), { spend: 0, leads: 0, leads_cadastro: 0, conversas: 0, impressions: 0, clicks: 0 });
   }, [filteredData]);
 
   return (
@@ -366,33 +415,39 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
           <table className="w-full border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
               <tr>
-                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[350px]">
+                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   Campanha / Conjunto / Anúncio
                 </th>
-                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[150px]">
-                  Objetivo
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[130px]">
+                <th className="py-3 px-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[100px]">
                   Plataforma
                 </th>
                 <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[120px]">
                   Investimento
                 </th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
-                  Leads
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                  Leads Geral
                 </th>
                 <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
                   CPL
                 </th>
                 <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[100px]">
-                  Impressões
+                  Lds. Cadastro
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[90px]">
+                  Mensagens
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
+                  CTR
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 w-[80px]">
+                  CPC
                 </th>
               </tr>
             </thead>
             <tbody>
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="h-32 text-center text-muted-foreground">
+                  <td colSpan={9} className="h-32 text-center text-muted-foreground">
                     Nenhuma campanha encontrada.
                   </td>
                 </tr>
@@ -425,17 +480,15 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded" title={campaign.objective}>
-                            {campaign.objective}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
                           <PlatformIcons platforms={campaign.platforms} />
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-slate-700">{fmtCurrency(campaign.spend)}</td>
                         <td className="py-3 px-4 text-right font-bold text-blue-600">{campaign.leads}</td>
                         <td className="py-3 px-4 text-right text-slate-600">{fmtCurrency(campaign.cpl)}</td>
-                        <td className="py-3 px-4 text-right text-slate-500">{fmtNumber(campaign.impressions)}</td>
+                        <td className="py-3 px-4 text-right text-slate-500">{campaign.leads_cadastro}</td>
+                        <td className="py-3 px-4 text-right text-slate-500">{campaign.conversas}</td>
+                        <td className="py-3 px-4 text-right text-slate-500">{campaign.ctr.toFixed(2)}%</td>
+                        <td className="py-3 px-4 text-right text-slate-500">{fmtCurrency(campaign.cpc)}</td>
                       </tr>
 
                       {/* AdSets (Level 2) */}
@@ -464,11 +517,13 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                 </div>
                               </td>
                               <td className="py-2 px-4"></td>
-                              <td className="py-2 px-4"></td>
                               <td className="py-2 px-4 text-right font-medium text-slate-600 text-sm">{fmtCurrency(adset.spend)}</td>
                               <td className="py-2 px-4 text-right font-medium text-blue-500 text-sm">{adset.leads}</td>
                               <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(adset.cpl)}</td>
-                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtNumber(adset.impressions)}</td>
+                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.leads_cadastro}</td>
+                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.conversas}</td>
+                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{adset.ctr.toFixed(2)}%</td>
+                              <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(adset.cpc)}</td>
                             </tr>
 
                             {/* Ads (Level 3) */}
@@ -516,11 +571,13 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
                                   </div>
                                 </td>
                                 <td className="py-2 px-4"></td>
-                                <td className="py-2 px-4"></td>
                                 <td className="py-2 px-4 text-right text-slate-500 text-sm">{fmtCurrency(ad.spend)}</td>
                                 <td className="py-2 px-4 text-right text-blue-400 text-sm">{ad.leads}</td>
                                 <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(ad.cpl)}</td>
-                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtNumber(ad.impressions)}</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.leads_cadastro}</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.conversas}</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{ad.ctr.toFixed(2)}%</td>
+                                <td className="py-2 px-4 text-right text-slate-400 text-sm">{fmtCurrency(ad.cpc)}</td>
                               </tr>
                             ))}
                           </React.Fragment>
@@ -536,11 +593,13 @@ export const CampaignsView: React.FC<Props> = ({ data }) => {
               <tr>
                 <td className="py-3 px-4 text-slate-800">Total ({filteredData.length} campanhas)</td>
                 <td className="py-3 px-4"></td>
-                <td className="py-3 px-4"></td>
                 <td className="py-3 px-4 text-right">{fmtCurrency(totals.spend)}</td>
                 <td className="py-3 px-4 text-right text-blue-600">{totals.leads}</td>
                 <td className="py-3 px-4 text-right">{fmtCurrency(totals.leads > 0 ? totals.spend / totals.leads : 0)}</td>
-                <td className="py-3 px-4 text-right">{fmtNumber(totals.impressions)}</td>
+                <td className="py-3 px-4 text-right">{totals.leads_cadastro}</td>
+                <td className="py-3 px-4 text-right">{totals.conversas}</td>
+                <td className="py-3 px-4 text-right">{totals.impressions > 0 ? ((totals.clicks / totals.impressions) * 100).toFixed(2) : '0.00'}%</td>
+                <td className="py-3 px-4 text-right">{fmtCurrency(totals.clicks > 0 ? totals.spend / totals.clicks : 0)}</td>
               </tr>
             </tfoot>
           </table>

@@ -9,6 +9,8 @@ interface FiltersContextData {
     setSelectedCluster: (cluster: string) => void;
     dateRange: RangeValue | null;
     setDateRange: (range: RangeValue | null) => void;
+    selectedPlatform: string;
+    setSelectedPlatform: (platform: string) => void;
 }
 
 const FiltersContext = createContext<FiltersContextData | undefined>(undefined);
@@ -52,6 +54,10 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         };
     });
 
+    const [selectedPlatform, setSelectedPlatformState] = useState<string>(() => {
+        return localStorage.getItem('op7_platform_filter') || 'ALL';
+    });
+
     const setSelectedAccounts = (accounts: string[]) => {
         setSelectedAccountsState(accounts);
         localStorage.setItem('op7_account_filter', JSON.stringify(accounts));
@@ -78,8 +84,13 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const setSelectedPlatform = (platform: string) => {
+        setSelectedPlatformState(platform);
+        localStorage.setItem('op7_platform_filter', platform);
+    };
+
     return (
-        <FiltersContext.Provider value={{ selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange }}>
+        <FiltersContext.Provider value={{ selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange, selectedPlatform, setSelectedPlatform }}>
             {children}
         </FiltersContext.Provider>
     );

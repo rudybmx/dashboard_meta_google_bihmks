@@ -66,7 +66,7 @@ export default function App() {
   const [effectiveAccountIds, setEffectiveAccountIds] = useState<string[]>([]);
 
   // Filter States - Managed by FSD Context now
-  const { selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange } = useFilters();
+  const { selectedAccounts, setSelectedAccounts, selectedCluster, setSelectedCluster, dateRange, setDateRange, selectedPlatform, setSelectedPlatform } = useFilters();
 
   // Clean URL parameters on mount
   useEffect(() => {
@@ -215,7 +215,7 @@ export default function App() {
 
         // Now fetch data
         const [campaignResult, kpiResult, summaryResult] = await Promise.all([
-          fetchCampaignData(start, end, effectiveAccountIds),
+          fetchCampaignData(start, end, effectiveAccountIds, selectedPlatform),
           fetchKPIComparison(start, end, franchiseIdsForService, serviceAccountFilter),
           fetchSummaryReport(start, end, franchiseIdsForService, serviceAccountFilter)
         ]);
@@ -245,7 +245,8 @@ export default function App() {
     dateRange?.start?.toISOString(),
     dateRange?.end?.toISOString(),
     selectedAccounts,
-    selectedCluster
+    selectedCluster,
+    selectedPlatform
     // availableFranchises removed to prevent loop (it depends on metaAccounts which is set here)
   ]);
 
@@ -395,6 +396,8 @@ export default function App() {
               userRole={userProfile?.role}
               assignedAccountIds={allowedAccountIds}
               assignedClusterIds={allowedClusterIds}
+              selectedPlatform={selectedPlatform}
+              setSelectedPlatform={setSelectedPlatform}
             />
           )}
         </header>

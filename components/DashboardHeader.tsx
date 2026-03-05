@@ -26,6 +26,8 @@ interface DashboardHeaderProps {
   userRole?: string;
   assignedAccountIds?: string[]; // RBAC: User's assigned account IDs
   assignedClusterIds?: string[]; // RBAC: User's assigned cluster IDs
+  selectedPlatform?: string;
+  setSelectedPlatform?: (val: string) => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -42,7 +44,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   assignedAccountIds,
   assignedClusterIds,
   selectedCluster,
-  setSelectedCluster
+  setSelectedCluster,
+  selectedPlatform,
+  setSelectedPlatform
 }) => {
   const { data: clusters = [] } = useClusters();
   const [open, setOpen] = React.useState(false);
@@ -155,7 +159,23 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* 1. Franqueado (Hidden for Clients) - REMOVED */}
 
 
-        {/* 1.5 Agrupamento */}
+        {/* 1.5 Plataforma */}
+        {selectedPlatform !== undefined && setSelectedPlatform && (
+          <div className="w-[150px]">
+            <Select
+              placeholder="Plataforma"
+              value={selectedPlatform}
+              onChange={(e) => setSelectedPlatform(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Todas as Redes' },
+                { value: 'META', label: 'Meta Ads' },
+                { value: 'GOOGLE', label: 'Google Ads' }
+              ]}
+            />
+          </div>
+        )}
+
+        {/* 1.6 Agrupamento */}
         {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
           <div className="w-[200px]">
             <Select

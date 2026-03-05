@@ -84,7 +84,11 @@ const aggregateAds = (data: CampaignData[]): AdAggregated[] => {
     const g = groups[id];
     const spend = Number(row.valor_gasto || 0);
     g.spend += spend;
-    g.leads += (Number(row.msgs_iniciadas || 0) + Number(row.compras || 0));
+    // Business Rule: Leads Geral = msgs_iniciadas + leads_total (only if Cadastro objective)
+    const objLower = (row.objective || '').toLowerCase();
+    const isCad = objLower.includes('cadastro') || objLower.includes('lead');
+    const rowLeadsCadastro = isCad ? Number(row.leads_total || 0) : 0;
+    g.leads += (Number(row.msgs_iniciadas || 0) + rowLeadsCadastro);
     g.impressions += Number(row.impressoes || 0);
     g.clicks += Number(row.cliques_todos || 0);
     g.purchases += Number(row.compras || 0);

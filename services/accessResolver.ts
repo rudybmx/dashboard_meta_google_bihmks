@@ -43,7 +43,7 @@ export const resolveUserAccounts = async (userProfile: UserProfile): Promise<Res
             id: acc.account_id, // Mapping id to account_id as per interface
             account_id: acc.account_id,
             account_name: acc.nome_original, // ou nome_ajustado se preferir
-            display_name: acc.nome_ajustado || acc.nome_original,
+            display_name: (acc.nome_ajustado?.trim() ? acc.nome_ajustado.trim() : null) || (acc.nome_original?.trim() ? acc.nome_original.trim() : null) || 'Conta Sem Nome',
             franchise_id: acc.franqueado_id,
             franchise_name: acc.tb_franqueados?.nome || 'Sem Franquia',
             current_balance: parseFloat(acc.saldo_balanco || '0'),

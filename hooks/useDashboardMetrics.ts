@@ -8,6 +8,7 @@ export interface DashboardFilter {
   endDate: Date;
   franchiseFilter?: string[];
   accountFilter?: string[];
+  platform?: string;
 }
 
 export interface WeeklySeriesPoint {
@@ -84,115 +85,123 @@ export function useDashboardMetrics(filters: DashboardFilter) {
       setError(null);
       try {
         const { startDate, endDate, franchiseFilter, accountFilter } = filters;
-        
-          
-          // Fetch data using Raw Service (Hybrid Architecture)
-          const rawRows = await fetchCampaignDataRaw(startDate, endDate, accountFilter ?? []);
 
-          if (!mounted) return;
+        // Fetch data using Raw Service (Hybrid Architecture)
+        const rawRows = await fetchCampaignDataRaw(startDate, endDate, accountFilter ?? [], filters.platform);
 
-          // --- CALCULATION LOGIC ---
-          // 1. Calculate Backend-Compatible Metrics (CPL, etc.)
-          const metricsCalc = calculateMetrics(rawRows);
+        if (!mounted) return;
 
-          const {
-              valor_gasto,
-              compras,
-              leads_total,
-              msgs_iniciadas,
-              impressoes,
-              alcance,
-              cliques_todos,
-              cpl_total,
-          } = metricsCalc;
+        // --- CALCULATION LOGIC ---
+        // 1. Calculate Backend-Compatible Metrics (CPL, etc.)
+        const metricsCalc = calculateMetrics(rawRows);
 
-          // Leads Logic is now centralized in calculateMetrics (it sums leads+msgs+purchases? No, check implementation)
-          // calculateMetrics sums fields individually.
-          // The Hook had specific logic: leads = msgs + leads_total + compras.
-          // Let's replicate that specific logic using the SUMS from calculateMetrics.
-          
-          const totalLeads = msgs_iniciadas + leads_total + compras;
-          
-          // Re-calculate CPL based on this specific "Total Leads" definition if it differs from calculateMetrics's generic one
-          // calculateMetrics CPL = investment / leads_total.
-          // User might want CPL = investment / (leads+msgs+compras).
-          // Let's stick to the hook's previous logic for consistency or update dataAggregation?
-          // The Hook's logic: cpl = investment / leads. (where leads = sum of 3 things).
-          
-          const cpl = totalLeads > 0 ? valor_gasto / totalLeads : null; 
+        const {
+          valor_gasto,
+          compras,
+          leads,
+          conversas,
+          impressoes,
+          alcance,
+          cliques_todos,
+          cpl_total,
+        } = metricsCalc;
 
-          // Funnel
-          const funnel = {
-            impressions: impressoes,
-            reach: alcance,
-            clicks: cliques_todos,
-            leads: totalLeads,
-          };
+        // Leads Geral
+        const totalLeads = leads;
 
-          // Process rows for lists (add images, etc.)
-          // We can do this in parallel or after? 
-          // For Weekly/Objectives we can use rawRows (faster).
-          // For TopCreatives we need images (processCampaignData).
-          
-          const processedRows = await processCampaignData(rawRows);
-          const rows = processedRows; // Keep naming for compatibility below
+        // CPL = investimento / leads
+        const cpl = totalLeads > 0 ? valor_gasto / totalLeads : null;
+
+        // Funnel
+        const funnel = {
+          impressions: impressoes,
+          reach: alcance,
+          clicks: cliques_todos,
+          leads: totalLeads,
+        };
+
+        // Process rows for lists (add images, etc.)
+        // We can do this in parallel or after? 
+        // For Weekly/Objectives we can use rawRows (faster).
+        // For TopCreatives we need images (processCampaignData).
+
+        const processedRows = await processCampaignData(rawRows);
+        const rows = processedRows; // Keep naming for compatibility below
 
         // Weekly Series (Aggregation by Day of Week: Mon-Sun)
         const daysOfWeek = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
         // Initialize buckets: 0=Mon, 1=Tue, ..., 6=Sun
         const weekBuckets = daysOfWeek.map(label => ({
-            label,
-            investment: 0,
-            leads: 0,
-            purchases: 0,
-            count: 0
+          label,
+          investment: 0,
+          leads: 0,
+          purchases: 0,
+          count: 0
         }));
 
         rows.forEach(row => {
-            if (!row.date_start) return;
-            // Parse date (assuming YYYY-MM-DD from DB)
-            const d = new Date(row.date_start);
-            // getDay(): 0=Sun, 1=Mon...6=Sat
-            let dayIdx = d.getUTCDay(); 
-            
-            // Adjust to Mon(0) -> Sun(6) index for our array
-            // Mon(1)->0, Tue(2)->1... Sat(6)->5, Sun(0)->6
-            let bucketIdx = dayIdx === 0 ? 6 : dayIdx - 1;
+          if (!row.date_start) return;
+          // Parse date (assuming YYYY-MM-DD from DB)
+          const d = new Date(row.date_start);
+          // getDay(): 0=Sun, 1=Mon...6=Sat
+          let dayIdx = d.getUTCDay();
 
-            if (weekBuckets[bucketIdx]) {
-                weekBuckets[bucketIdx].investment += (row.valor_gasto || 0);
-                weekBuckets[bucketIdx].leads += (row.leads_total || 0) + (row.msgs_iniciadas || 0) + (row.compras || 0);
-                weekBuckets[bucketIdx].purchases += (row.compras || 0);
-                weekBuckets[bucketIdx].count += 1;
-            }
+          // Adjust to Mon(0) -> Sun(6) index for our array
+          // Mon(1)->0, Tue(2)->1... Sat(6)->5, Sun(0)->6
+          let bucketIdx = dayIdx === 0 ? 6 : dayIdx - 1;
+
+          if (weekBuckets[bucketIdx]) {
+            weekBuckets[bucketIdx].investment += (row.valor_gasto || 0);
+            // Leads Geral = msgs_iniciadas + leads_total (only if Cadastro objective)
+            const objLower = (row.objective || '').toLowerCase();
+            const isCad = objLower.includes('cadastro') || objLower.includes('lead');
+            weekBuckets[bucketIdx].leads += ((row.msgs_iniciadas || 0) + (isCad ? (row.leads_total || 0) : 0));
+            weekBuckets[bucketIdx].purchases += (row.compras || 0);
+            weekBuckets[bucketIdx].count += 1;
+          }
         });
 
         const weeklySeries = weekBuckets.map(b => ({
-            date: b.label, // Reuse 'date' field for label to match interface
-            investment: b.investment,
-            leads: b.leads,
-            purchases: b.purchases
+          date: b.label, // Reuse 'date' field for label to match interface
+          investment: b.investment,
+          leads: b.leads,
+          purchases: b.purchases
         }));
 
         // Top Objectives
         const byObjective = groupBy(rows, r => r.objective || 'SEM OBJETIVO');
         const topObjectives = Object.entries(byObjective).map(([objective, group]) => {
           const inv = group.reduce((acc, r) => acc + (r.valor_gasto || 0), 0);
-          const lds = group.reduce((acc, r) => acc + (r.leads_total || 0) + (r.msgs_iniciadas || 0) + (r.compras || 0), 0);
           const prs = group.reduce((acc, r) => acc + (r.compras || 0), 0);
-          
+
           const impr = group.reduce((acc, r) => acc + (r.impressoes || 0), 0);
           const clks = group.reduce((acc, r) => acc + (r.cliques_todos || 0), 0);
           const msgs = group.reduce((acc, r) => acc + (r.msgs_iniciadas || 0), 0);
+          const leadsTotal = group.reduce((acc, r) => acc + (r.leads_total || 0), 0);
 
-          return { 
-             objective, 
-             investment: inv, 
-             leads: lds, 
-             purchases: prs,
-             impressions: impr,
-             clicks: clks,
-             msgs
+          // Each objective shows its OWN primary result as "leads":
+          //   Engajamento/Mensagens → msgs_iniciadas
+          //   Cadastros/Leads → leads_total
+          //   Vendas/Sales/Conversões → compras
+          const objLower = objective.toLowerCase();
+          let lds: number;
+          if (objLower.includes('cadastro') || objLower.includes('lead')) {
+            lds = leadsTotal;
+          } else if (objLower.includes('venda') || objLower.includes('sales') || objLower.includes('conve')) {
+            lds = prs;
+          } else {
+            // Engajamento, Tráfego, etc. → msgs_iniciadas
+            lds = msgs;
+          }
+
+          return {
+            objective,
+            investment: inv,
+            leads: lds,
+            purchases: prs,
+            impressions: impr,
+            clicks: clks,
+            msgs
           };
         }).sort((a, b) => b.investment - a.investment);
 
@@ -200,10 +209,17 @@ export function useDashboardMetrics(filters: DashboardFilter) {
         const byCreative = groupBy(rows, r => r.ad_id || 'SEM_ID');
         let topCreatives = Object.entries(byCreative).map(([ad_id, group]) => {
           const inv = group.reduce((acc, r) => acc + (r.valor_gasto || 0), 0);
-          const lds = group.reduce((acc, r) => acc + (r.leads_total || 0) + (r.msgs_iniciadas || 0) + (r.compras || 0), 0);
+          // Leads Geral per creative group
+          const lds = group.reduce((acc, r) => {
+            const msgs = r.msgs_iniciadas || 0;
+            const objL = (r.objective || '').toLowerCase();
+            const isCad = objL.includes('cadastro') || objL.includes('lead');
+            const cadLeads = isCad ? (r.leads_total || 0) : 0;
+            return acc + msgs + cadLeads;
+          }, 0);
           const prs = group.reduce((acc, r) => acc + (r.compras || 0), 0);
           const cpr = (lds + prs) > 0 ? inv / (lds + prs) : undefined;
-          
+
           const impr = group.reduce((acc, r) => acc + (r.impressoes || 0), 0);
           const clks = group.reduce((acc, r) => acc + (r.cliques_todos || 0), 0);
 
@@ -212,18 +228,18 @@ export function useDashboardMetrics(filters: DashboardFilter) {
           const ad_name = first?.ad_name || first?.adset_name || first?.campaign_name || 'Anúncio sem nome';
           const imageUrl = first?.ad_image_url;
           const link = first?.ad_post_link || first?.ad_destination_url;
-          
-          return { 
-              ad_id, 
-              ad_name, 
-              investment: inv, 
-              leads: lds, 
-              purchases: prs, 
-              cpr,
-              impressions: impr,
-              clicks: clks,
-              imageUrl,
-              link
+
+          return {
+            ad_id,
+            ad_name,
+            investment: inv,
+            leads: lds,
+            purchases: prs,
+            cpr,
+            impressions: impr,
+            clicks: clks,
+            imageUrl,
+            link
           };
         });
 
@@ -244,7 +260,7 @@ export function useDashboardMetrics(filters: DashboardFilter) {
           topObjectives,
           topCreatives
         });
-        
+
       } catch (err: any) {
         console.error("Error calculating dashboard metrics:", err);
         setError(err.message || "Failed to load dashboard metrics");
@@ -257,11 +273,12 @@ export function useDashboardMetrics(filters: DashboardFilter) {
 
     return () => { mounted = false; };
   }, [
-    filters.startDate.toISOString(), 
-    filters.endDate.toISOString(), 
+    filters.startDate.toISOString(),
+    filters.endDate.toISOString(),
     // Join filters to stable strings for dep array
     (filters.franchiseFilter || []).join(','),
-    (filters.accountFilter || []).join(',')
+    (filters.accountFilter || []).join(','),
+    filters.platform
   ]);
 
   return { metrics, loading, error };

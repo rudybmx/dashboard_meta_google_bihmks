@@ -11,6 +11,7 @@ export interface RawFinanceData {
     clicks: number;
     impressoes: number;
     alcance: number;
+    plataforma?: 'meta' | 'google' | string;
 }
 
 export interface ConsolidatedMetrics {

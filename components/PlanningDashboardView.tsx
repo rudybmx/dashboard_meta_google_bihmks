@@ -9,6 +9,7 @@ import { supabase } from '../services/supabaseClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/shared/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/shared/ui/card';
 import { ArrowDown, Loader2, TrendingUp, AlertTriangle } from 'lucide-react';
+import { useFilters } from '@/src/features/filters/model/useFilters';
 import {
     LineChart,
     Line,
@@ -31,6 +32,7 @@ interface PlanningDashboardViewProps {
 }
 
 export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ allowedFranchises = [], userRole }) => {
+    const { selectedPlatform } = useFilters();
     const [categories, setCategories] = useState<CategoryRow[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
     const [plannings, setPlannings] = useState<PlanningRow[]>([]);
@@ -109,22 +111,40 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
                     const endStr = `${selectedDate.year}-${String(selectedDate.month).padStart(2, '0')}-${lastDay}`;
 
                     // Fetch Daily Data for Chart & Aggregation
-                    const { data: unifiedData } = await supabase
+                    let query: any = supabase
                         .from('vw_dashboard_unified')
-                        .select('date_start, impressoes, cliques_todos, leads_total, msgs_iniciadas, compras, valor_gasto')
+                        .select('*')
                         .in('account_id', accountIds)
                         .gte('date_start', startStr)
                         .lte('date_start', endStr)
                         .order('date_start', { ascending: true });
 
+                    if (selectedPlatform && selectedPlatform !== 'ALL') {
+                        query = query.eq('plataforma', selectedPlatform.toLowerCase());
+                    }
+
+                    const { data: unifiedData } = await query;
+
                     // Aggregate Logic
-                    const agg = (unifiedData || []).reduce((acc, row) => ({
-                        imp: acc.imp + (row.impressoes || 0),
-                        clicks: acc.clicks + (row.cliques_todos || 0),
-                        leads: acc.leads + (row.leads_total || 0) + (row.msgs_iniciadas || 0),
-                        sales: acc.sales + (row.compras || 0),
-                        spent: acc.spent + (row.valor_gasto || 0)
-                    }), { imp: 0, clicks: 0, leads: 0, sales: 0, spent: 0 });
+                    const agg = (unifiedData || []).reduce((acc, row) => {
+                        const isCadastro = (row.objective || '').toLowerCase().includes('cadastro');
+                        const rowLeadsTotal = Number(row.leads_total || 0);
+                        const rowConversas = Number((row.conversas !== undefined ? row.conversas : row.msgs_iniciadas) || 0);
+                        const rowLeadsCadastro = row.leads_cadastro !== undefined
+                            ? Number(row.leads_cadastro)
+                            : (isCadastro ? rowLeadsTotal : 0);
+                        const rowLeads = row.leads !== undefined
+                            ? Number(row.leads)
+                            : (rowLeadsCadastro + rowConversas + Number(row.compras || 0));
+
+                        return {
+                            imp: acc.imp + (row.impressoes || 0),
+                            clicks: acc.clicks + (row.cliques_todos || 0),
+                            leads: acc.leads + rowLeads,
+                            sales: acc.sales + (row.compras || 0),
+                            spent: acc.spent + (row.valor_gasto || 0)
+                        };
+                    }, { imp: 0, clicks: 0, leads: 0, sales: 0, spent: 0 });
 
                     setActuals({
                         phases: [agg.imp, agg.clicks, agg.leads, agg.sales],
@@ -141,7 +161,15 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
                     const dailyMap = new Map<string, number>();
                     (unifiedData || []).forEach(row => {
                         const d = row.date_start; // YYYY-MM-DD
-                        const val = (row.leads_total || 0) + (row.msgs_iniciadas || 0);
+                        const isCadastro = (row.objective || '').toLowerCase().includes('cadastro');
+                        const rowLeadsTotal = Number(row.leads_total || 0);
+                        const rowConversas = Number((row.conversas !== undefined ? row.conversas : row.msgs_iniciadas) || 0);
+                        const rowLeadsCadastro = row.leads_cadastro !== undefined
+                            ? Number(row.leads_cadastro)
+                            : (isCadastro ? rowLeadsTotal : 0);
+                        const val = row.leads !== undefined
+                            ? Number(row.leads)
+                            : (rowLeadsCadastro + rowConversas + Number(row.compras || 0));
                         dailyMap.set(d, (dailyMap.get(d) || 0) + val);
                     });
 
@@ -170,7 +198,7 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
         };
 
         fetchData();
-    }, [selectedCategoryId, selectedDate, allowedFranchises, userRole]);
+    }, [selectedCategoryId, selectedDate, allowedFranchises, userRole, selectedPlatform]);
 
     // 3. Planned Metrics Calculation
     const plannedData = useMemo(() => {
@@ -266,6 +294,23 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
 
         return { percent, color, bg };
     };
+
+    // 5. Prediction Logic
+    const predictionData = useMemo(() => {
+        if (!plannedData || actuals.cpl_real === 0) return null;
+
+        const targetLeads = plannedData.phases[2];
+        const plannedInvestment = targetLeads * plannedData.avgCpl;
+        const suggestedInvestment = targetLeads * actuals.cpl_real;
+        const isAlert = suggestedInvestment > (plannedInvestment * 1.3);
+
+        return {
+            targetLeads,
+            plannedInvestment,
+            suggestedInvestment,
+            isAlert
+        };
+    }, [plannedData, actuals.cpl_real]);
 
     return (
         <div className="space-y-6 w-full h-full p-4 overflow-y-auto pb-20">
@@ -439,6 +484,50 @@ export const PlanningDashboardView: React.FC<PlanningDashboardViewProps> = ({ al
                 </Card>
 
             </div>
+
+            {/* --- Prediction Widget --- */}
+            {predictionData && (
+                <div className="mt-6 border-t border-slate-200 pt-6">
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="py-4 border-b border-slate-50">
+                            <CardTitle className="text-base text-slate-800 flex items-center gap-2">
+                                <TrendingUp size={18} className="text-indigo-500" />
+                                Predição para o Próximo Mês / Ajuste Necessário
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <div className="space-y-1">
+                                    <p className="text-sm text-slate-500 font-medium">Meta de Leads (Fase 3)</p>
+                                    <p className="text-2xl font-bold text-slate-800">{formatNumber(Math.round(predictionData.targetLeads))}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-slate-500 font-medium">CPL Real Atual</p>
+                                    <p className="text-2xl font-bold text-slate-800">{formatCurrency(actuals.cpl_real)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-slate-500 font-medium">Orçamento Planejado</p>
+                                    <p className="text-2xl font-bold text-slate-800">{formatCurrency(predictionData.plannedInvestment)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-slate-500 font-medium font-bold text-indigo-700">Investimento Sugerido</p>
+                                    <p className="text-2xl font-bold text-indigo-600 border-b-2 border-indigo-200 inline-block">{formatCurrency(predictionData.suggestedInvestment)}</p>
+                                </div>
+                            </div>
+
+                            {predictionData.isAlert && (
+                                <div className="mt-6 flex items-start gap-3 bg-red-50 border border-red-200 p-4 rounded-lg">
+                                    <AlertTriangle className="text-red-500 flex-shrink-0" size={20} />
+                                    <div>
+                                        <h4 className="text-sm font-bold text-red-800">Alerta de Desvio de Orçamento</h4>
+                                        <p className="text-sm text-red-700 mt-1">Atenção: O CPL real está significativamente acima da meta. Para atingir o volume de leads planejado com a eficiência atual, será necessário um aumento de orçamento de mais de 30% em relação ao planejado. Considere otimizar as campanhas ativas antes de injetar mais verba.</p>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 };
