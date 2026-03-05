@@ -98,6 +98,7 @@ export interface MetaAdAccount {
   display_name?: string; // Friendly Name
   franchise_id?: string; // Linked Franchise
   categoria_id?: string; // Linked Category
+  franchise_name?: string; // Cache for display
   status: 'active' | 'removed' | 'archived';
   client_visibility: boolean;
   current_balance: number;

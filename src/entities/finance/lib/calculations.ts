@@ -29,15 +29,17 @@ export const summarizeMetrics = (data: RawFinanceData[]): ConsolidatedMetrics =>
             acc.clicks += row.clicks || 0;
             acc.impressions += row.impressoes || 0;
             acc.reach += row.alcance || 0;
+            acc.totalBalance += row.saldo_atual || 0;
             return acc;
         },
-        { spend: 0, leads: 0, leads_cadastro: 0, purchases: 0, conversations: 0, clicks: 0, impressions: 0, reach: 0 }
+        { spend: 0, leads: 0, leads_cadastro: 0, purchases: 0, conversations: 0, clicks: 0, impressions: 0, reach: 0, totalBalance: 0 }
     );
 
     return {
         ...totals,
         cpl: calculateCPL(totals.spend, totals.leads),
         ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
+        totalBalance: totals.totalBalance,
         rawData: data // Return raw metrics to be used by deeper components
     };
 };

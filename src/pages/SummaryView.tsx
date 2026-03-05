@@ -172,7 +172,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
                   <TableCell className="text-right text-slate-500">{fmtDec(freq)}</TableCell>
                   <TableCell className="text-right text-slate-500">{fmtInt(row.impressoes)}</TableCell>
                   <TableCell className="text-right text-slate-500">{fmtInt(row.clicks)}</TableCell>
-                  <TableCell className={cn("text-right font-bold", row.saldo_atual < 100 ? "text-red-600" : "text-emerald-700")}>{fmtCurrency(row.saldo_atual)}</TableCell>
+                  <TableCell className={cn("text-right font-bold", (row.saldo_atual || 0) < 100 ? "text-red-600" : "text-emerald-700")}>{fmtCurrency(row.saldo_atual || 0)}</TableCell>
                 </TableRow>
               );
             })}
@@ -190,7 +190,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ effectiveAccountIds })
               <TableCell className="text-right">{fmtDec(avgFreq)}</TableCell>
               <TableCell className="text-right">{fmtInt(totals.impressoes)}</TableCell>
               <TableCell className="text-right">{fmtInt(totals.clicks)}</TableCell>
-              <TableCell className="text-right">{fmtCurrency(totals.saldo_atual)}</TableCell>
+              <TableCell className="text-right">{fmtCurrency(metrics?.totalBalance || 0)}</TableCell>
             </TableRow>
           </TableFooter>
         </Table>

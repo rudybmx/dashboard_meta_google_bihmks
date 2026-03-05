@@ -47,7 +47,8 @@ interface MetaAccountRPCRow {
     account_id: string;
     nome_original: string | null;
     nome_ajustado: string | null;
-    franqueado: string | null;
+    franqueado_id: string | null;
+    franchise_name: string | null;
     categoria_id: string | null;
     status_interno: string;
     client_visibility: boolean | null;
@@ -55,7 +56,7 @@ interface MetaAccountRPCRow {
     updated_at: string | null;
     status_meta: string | null;
     motivo_bloqueio: string | null;
-    total_gasto: number | null;
+    total_gasto: string | number | null;
 }
 
 interface UpdateMetaAccountParams {
@@ -474,11 +475,11 @@ export const fetchMetaAccounts = async (): Promise<MetaAdAccount[]> => {
             account_id: row.account_id,
             account_name: row.nome_original || 'Sem Nome',
             display_name: row.nome_ajustado || '',
-            franchise_id: row.franqueado || '',
-            franchise_name: '',
+            franchise_id: row.franqueado_id || '',
+            franchise_name: row.franchise_name || '',
             categoria_id: row.categoria_id || '',
             status: (row.status_interno === 'removed' ? 'removed' : 'active') as 'removed' | 'active',
-            client_visibility: row.client_visibility ?? false,
+            client_visibility: row.client_visibility ?? true,
             current_balance: safeFloat(row.saldo_balanco),
             last_sync: row.updated_at || new Date().toISOString(),
             status_meta: row.status_meta || undefined,

@@ -24,6 +24,7 @@ export interface ConsolidatedMetrics {
     impressions: number;
     reach: number;
     cpl: number; // Calculated using 'Leads Geral'
+    totalBalance: number;
     ctr: number;
     rawData: RawFinanceData[];
 }

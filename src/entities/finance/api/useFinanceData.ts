@@ -3,6 +3,7 @@ import { supabase } from '@/services/supabaseClient';
 import { summarizeMetrics } from '../lib/calculations';
 import { RawFinanceData, ConsolidatedMetrics } from '../model/types';
 import { formatDateForDB } from '@/src/shared/lib/dateUtils';
+import { fetchMetaAccounts } from '@/services/supabaseService';
 import { useFilters } from '@/src/features/filters';
 
 const getUserEmail = (): string | null => {
@@ -26,6 +27,9 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
                 return summarizeMetrics([]);
             }
 
+            // 1. Fetch metadata for all accounts (already respects permissions via RPC)
+            const metaAccounts = await fetchMetaAccounts();
+
             let accountFilter: string[] | null = null;
 
             if (injectedAccountIds && injectedAccountIds.length > 0) {
@@ -35,10 +39,18 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
             } else if (selectedCluster && selectedCluster !== 'ALL') {
                 const { data: clusterAccs } = await (supabase.from as any)('cluster_accounts').select('account_id').eq('cluster_id', selectedCluster);
                 accountFilter = clusterAccs?.map((a: any) => a.account_id) || [];
-                if (accountFilter.length === 0) accountFilter = ['NONE']; // Prevent fetching all if cluster is empty
+                if (accountFilter.length === 0) accountFilter = ['NONE'];
             }
 
-            // Paginated fetch to avoid Supabase 1000-row default limit
+            // 2. Filter base accounts
+            let baseAccounts = metaAccounts;
+            if (accountFilter && accountFilter[0] !== 'NONE' && !accountFilter.includes('ALL')) {
+                baseAccounts = metaAccounts.filter(a => accountFilter!.includes(a.account_id));
+            } else if (accountFilter && accountFilter[0] === 'NONE') {
+                return summarizeMetrics([]);
+            }
+
+            // 3. Paginated fetch for relative period
             const pageSize = 1000;
             let allData: any[] = [];
             let page = 0;
@@ -51,8 +63,6 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
 
                 if (accountFilter && accountFilter[0] !== 'NONE') {
                     query = query.in('account_id', accountFilter);
-                } else if (accountFilter && accountFilter[0] === 'NONE') {
-                    return summarizeMetrics([]);
                 }
 
                 if (selectedPlatform && selectedPlatform !== 'ALL') {
@@ -61,55 +71,47 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
 
                 const { data: pageData, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
 
-                if (error) {
-                    throw new Error(error.message);
-                }
+                if (error) throw new Error(error.message);
 
                 if (pageData && pageData.length > 0) {
                     allData = allData.concat(pageData);
-                    if (pageData.length < pageSize) {
-                        hasMore = false;
-                    } else {
-                        page++;
-                    }
+                    if (pageData.length < pageSize) hasMore = false;
+                    else page++;
                 } else {
                     hasMore = false;
                 }
             }
 
-            let data = allData;
-
-            // --- Gerar MOCK do Google caso selecione Google/ALL e não encontre ---
-            if (!data || data.length === 0 || (selectedPlatform === 'GOOGLE' && data.every((d: any) => d.plataforma !== 'google'))) {
-                if (selectedPlatform === 'ALL' || selectedPlatform === 'GOOGLE') {
-                    // Usar mock na conta principal se tiver accouhnts, se não "MOCK_ACC"
-                    const mAcc = (accountFilter && accountFilter[0] !== 'NONE' && accountFilter[0] !== 'ALL') ? accountFilter[0] : 'MOCK_ACCOUNT_GGL';
-                    data = data || [];
-                    data.push({
-                        account_id: mAcc,
-                        valor_gasto: 1540.50,
-                        leads: 105,
-                        leads_cadastro: 90,
-                        compras: 0,
-                        conversas: 15,
-                        cliques_todos: 1200,
-                        impressoes: 45000,
-                        alcance: 32000,
-                        plataforma: 'google'
-                    });
-                }
-            }
-
-            // Group by account_id to match RawFinanceData structure
+            // 4. Initialize Map with all base accounts (ensures they appear with 0 if no spend)
             const rawMap: Record<string, RawFinanceData> = {};
-            (data || []).forEach((row: any) => {
+            baseAccounts.forEach(acc => {
+                rawMap[acc.account_id] = {
+                    meta_account_id: acc.account_id,
+                    nome_conta: acc.display_name || acc.account_name || acc.account_id,
+                    franquia: acc.franchise_name || '',
+                    saldo_atual: Number(acc.current_balance || 0),
+                    investimento: 0,
+                    leads: 0,
+                    leads_cadastro: 0,
+                    compras: 0,
+                    conversas: 0,
+                    clicks: 0,
+                    impressoes: 0,
+                    alcance: 0,
+                };
+            });
+
+            // 5. Populate map with real metrics
+            (allData || []).forEach((row: any) => {
                 const accId = row.account_id;
+
+                // If account not in base list (e.g. Google mock or inconsistent ID), add it
                 if (!rawMap[accId]) {
                     rawMap[accId] = {
                         meta_account_id: accId,
                         nome_conta: (row.nome_ajustado?.trim() ? row.nome_ajustado.trim() : null) || (row.account_name?.trim() ? row.account_name.trim() : null) || accId,
-                        franquia: '',
-                        saldo_atual: 0,
+                        franquia: row.nome_franqueado || '',
+                        saldo_atual: Number(row.saldo_atual || row.current_balance || 0),
                         investimento: 0,
                         leads: 0,
                         leads_cadastro: 0,
@@ -120,11 +122,7 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
                         alcance: 0,
                     };
                 }
-                // Business Rules (validated with real data):
-                //   - leads_total only counts as Leads de Cadastro when objective contains "Cadastro"
-                //   - Leads de Mensagem = msgs_iniciadas (all rows)
-                //   - Leads Geral = Mensagens + Leads de Cadastro
-                //   - CPL = valor_gasto / Leads Geral
+
                 const rowLeadsTotal = Number(row.leads_total || 0);
                 const rowConversas = Number(row.msgs_iniciadas || 0);
                 const objective = String(row.objective || '').toLowerCase();
@@ -143,7 +141,7 @@ export const useFinanceData = (injectedAccountIds?: string[]) => {
             });
 
             const rawData = Object.values(rawMap);
-            return summarizeMetrics(rawData); // The selection/transformation layer inside FSD
+            return summarizeMetrics(rawData);
         },
         enabled: !!dateRange?.start && !!dateRange?.end,
         staleTime: 5 * 60 * 1000,
