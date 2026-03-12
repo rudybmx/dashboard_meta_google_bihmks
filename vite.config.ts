@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo_op7_azul.svg'],
           manifest: {
-            name: 'OP7 Performance Dashboard',
-            short_name: 'OP7 Dashboard',
+            name: 'Bihmks.Gow Plataforma Dashboard',
+            short_name: 'Bihmks.Gow Dashboard',
             description: 'Dashboard de performance para gestão de campanhas de marketing digital',
             theme_color: '#4F46E5',
             background_color: '#F8FAFC',

@@ -1,4 +1,4 @@
-# 🚀 Guia de Deploy - OP7 Performance Dashboard
+# 🚀 Guia de Deploy - Bihmks.Gow Plataforma Dashboard
 
 ## 📋 Pré-requisitos
 

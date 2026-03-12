@@ -374,7 +374,7 @@ export default function App() {
         <header className="relative z-50 flex-none">
           <div className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
             <MobileNav activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} />
-            <span className="font-bold">OP7 PERFORMANCE</span>
+            <span className="font-bold">BIHMKS.GOW PLATAFORMA</span>
           </div>
           {activeView === 'settings' ? (
             <div className="h-20 flex items-center px-6 bg-white border-b border-slate-200 shadow-sm relative z-40">
@@ -452,7 +452,7 @@ export default function App() {
               )}
             </Suspense>
 
-            <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} OP7 Performance.</footer>
+            <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} Bihmks.Gow Plataforma.</footer>
           </div>
         </main>
       </div>

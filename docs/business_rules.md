@@ -1,4 +1,4 @@
-# Documentação de Métricas e Regras de Negócio - Dashboard OP7
+# Documentação de Métricas e Regras de Negócio - Dashboard Bihmks.Gow Plataforma
 
 Este documento serve como a "Fonte Única da Verdade" (Single Source of Truth) para todos os cálculos e métricas exibidos no dashboard. O objetivo é garantir consistência entre os relatórios Gerenciais, Financeiros e por Objetivo.
 
