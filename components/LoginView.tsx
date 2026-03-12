@@ -148,7 +148,7 @@ export const LoginView: React.FC = () => {
                              <div className="flex items-center gap-3 mb-6">
                                 <div className="p-3 bg-indigo-50 rounded-2xl">
                                     <div className="w-8 h-8 relative">
-                                        <img src="https://docs.qozt.com.br/logo/bihmks/logo_bihmks.svg" alt="Bihmks Logo" className="w-full h-full object-contain" />
+                                        <img src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks.svg" alt="Bihmks Logo" className="w-full h-full object-contain" />
                                     </div>
                                 </div>
                                 <span className="font-bold text-slate-400 tracking-widest text-xs uppercase">Welcome Back</span>
