@@ -286,7 +286,7 @@ export const LoginView: React.FC = () => {
             
             {/* Footer */}
             <div className="absolute bottom-6 text-slate-400 text-xs font-medium z-10">
-                &copy; 2026 Bihmks Performance
+                &copy; {new Date().getFullYear()} BIHMKS&bull;GOW
             </div>
         </div>
     );

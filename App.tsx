@@ -452,7 +452,7 @@ export default function App() {
               )}
             </Suspense>
 
-            <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} Bihmks.Gow Plataforma.</footer>
+            <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} BIHMKS&bull;GOW</footer>
           </div>
         </main>
       </div>
