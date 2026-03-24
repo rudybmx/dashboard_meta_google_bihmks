@@ -62,6 +62,11 @@ const NAV_CONFIG = [
           { label: "Campanhas", view: null },
         ]
       },
+    ]
+  },
+  {
+    group: "Gestão Leads",
+    items: [
       {
         id: "crm",
         label: "CRM",
