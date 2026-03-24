@@ -112,7 +112,7 @@ export function AppSidebar({ activeView, setActiveView, userRole, userName, user
     <Sidebar collapsible="none" className="bg-black border-r border-white/10">
       <SidebarHeader className="px-4 py-5 border-b border-white/10">
         <img
-          src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks.svg"
+          src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks_branco.svg"
           alt="Bihmks"
           className="h-8 w-auto object-contain"
         />
