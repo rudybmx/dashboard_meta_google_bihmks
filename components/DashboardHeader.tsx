@@ -159,21 +159,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* 1. Franqueado (Hidden for Clients) - REMOVED */}
 
 
-        {/* 1.5 Plataforma */}
-        {selectedPlatform !== undefined && setSelectedPlatform && (
-          <div className="w-[150px]">
-            <Select
-              placeholder="Plataforma"
-              value={selectedPlatform}
-              onChange={(e) => setSelectedPlatform(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Todas as Redes' },
-                { value: 'META', label: 'Meta Ads' },
-                { value: 'GOOGLE', label: 'Google Ads' }
-              ]}
-            />
-          </div>
-        )}
+        {/* 1.5 Plataforma — removed */}
 
         {/* 1.6 Agrupamento */}
         {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
