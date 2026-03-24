@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import { Sidebar } from './components/layout/Sidebar';
-import { MobileNav } from './components/layout/MobileNav';
+import { SidebarProvider, SidebarTrigger } from './components/layout/AppSidebar';
+import { AppSidebar } from './components/layout/AppSidebar';
 import { DashboardHeader } from './components/DashboardHeader';
 import { LoginView } from './components/LoginView';
 import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts } from './services/supabaseService';
@@ -57,7 +57,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning'>('summary');
+  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'settings_accounts' | 'settings_users' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning'>('summary');
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
@@ -365,97 +365,102 @@ export default function App() {
   if (!session) return <LoginView />;
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      <aside className="hidden lg:flex w-72 flex-col border-r bg-card h-full">
-        <Sidebar activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} userRole={userProfile?.role} userName={userProfile?.name} userEmail={userProfile?.email} className="border-none h-full" />
-      </aside>
+    <SidebarProvider>
+      <div className="flex h-screen w-full bg-black overflow-hidden">
+        <AppSidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          userRole={userProfile?.role}
+          userName={userProfile?.name}
+          userEmail={userProfile?.email}
+        />
 
-      <div className="flex flex-1 flex-col overflow-hidden h-full">
-        <header className="relative z-50 flex-none">
-          <div className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
-            <MobileNav activeView={activeView} setActiveView={setActiveView} isDemoMode={isDemoMode} />
-            <span className="font-bold">BIHMKS.GOW PLATAFORMA</span>
-          </div>
-          {activeView === 'settings' ? (
-            <div className="h-20 flex items-center px-6 bg-white border-b border-slate-200 shadow-sm relative z-40">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Configurações</h2>
+        <div className="flex flex-1 flex-col overflow-hidden h-full">
+          <header className="relative z-50 flex-none">
+            <div className="lg:hidden p-4 bg-black border-b flex items-center justify-between">
+              <SidebarTrigger className="h-9 w-9" />
+              <span className="font-bold text-white">BIHMKS.GOW PLATAFORMA</span>
             </div>
-          ) : (
-            <DashboardHeader
-              title={activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : activeView === 'planning' ? 'Planejamento Analítico' : 'Dashboard'}
-              data={data}
-              selectedClients={selectedAccounts}
-              setSelectedClients={setSelectedAccounts}
-              selectedCluster={selectedCluster}
-              setSelectedCluster={setSelectedCluster}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
-              isLocked={availableFranchises.length === 1 && userProfile?.role !== 'admin'}
-              availableFranchises={availableFranchises}
-              metaAccounts={availableAccounts}
-              userRole={userProfile?.role}
-              assignedAccountIds={allowedAccountIds}
-              assignedClusterIds={allowedClusterIds}
-              selectedPlatform={selectedPlatform}
-              setSelectedPlatform={setSelectedPlatform}
-            />
-          )}
-        </header>
+            {activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users' ? (
+              <div className="h-20 flex items-center px-6 bg-black border-b border-white/10 shadow-sm relative z-40">
+                <h2 className="text-xl font-bold text-white tracking-tight">Configurações</h2>
+              </div>
+            ) : (
+              <DashboardHeader
+                title={activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : activeView === 'planning' ? 'Planejamento Analítico' : activeView === 'settings_accounts' ? 'Contas de Anúncios' : activeView === 'settings_users' ? 'Usuários e Acessos' : 'Dashboard'}
+                data={data}
+                selectedClients={selectedAccounts}
+                setSelectedClients={setSelectedAccounts}
+                selectedCluster={selectedCluster}
+                setSelectedCluster={setSelectedCluster}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                isLocked={availableFranchises.length === 1 && userProfile?.role !== 'admin'}
+                availableFranchises={availableFranchises}
+                metaAccounts={availableAccounts}
+                userRole={userProfile?.role}
+                assignedAccountIds={allowedAccountIds}
+                assignedClusterIds={allowedClusterIds}
+                selectedPlatform={selectedPlatform}
+                setSelectedPlatform={setSelectedPlatform}
+              />
+            )}
+          </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 p-6 scroll-smooth">
-          <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
-            {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
+          <main className="flex-1 overflow-y-auto bg-white p-6 scroll-smooth">
+            <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
+              {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
 
-            <Suspense fallback={<ViewLoader />}>
-              {activeView === 'summary' && (
-                <SummaryView
-                  data={filteredData}
-                  selectedFranchisee={''} // Logic Removed
-                  selectedClient={selectedAccounts.length === 1 ? selectedAccounts[0] : 'ALL'}
-                  dateRange={dateRange}
-                  allowedFranchises={availableFranchises.map(f => f.name)}
-                  allowedAccounts={allowedAccountIds}
-                  externalSummaryData={summaryData}
-                  externalLoading={loading && !isDataLoaded}
-                  effectiveAccountIds={effectiveAccountIds}
-                />
-              )}
-              {activeView === 'planning' && <PlanningDashboardView allowedFranchises={availableFranchises.map(f => f.name)} userRole={userProfile?.role} />}
-              {activeView === 'dashboard' && (
-                <ManagerialView
-                  dateRange={dateRange}
-                  accountIds={effectiveAccountIds}
-                />
-
-              )}
-              {activeView === 'executive' && <DashboardOverview data={filteredData} />}
-              {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
-              {activeView === 'ads' && (
-                <AdsTableView
-                  data={filteredData}
-                  onCampaignClick={(campaignName) => {
-                    setActiveView('campaigns');
-                  }}
-                />
-              )}
-              {activeView === 'creatives' && <CreativesView data={filteredData} />}
-              {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
-              {activeView === 'settings' && (userProfile?.role === 'admin') ? <SettingsView userRole={userProfile?.role} /> : activeView === 'settings' && (
-                <div className="flex h-[60vh] w-full items-center justify-center">
-                  <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
-                    <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />
-                    <h3 className="text-xl font-bold text-slate-900">Acesso Restrito</h3>
-                    <p className="text-slate-500">Seu perfil ({userProfile?.role}) não possui permissão para acessar as configurações.</p>
-                    <button onClick={() => setActiveView('dashboard')} className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg">Voltar ao Dashboard</button>
+              <Suspense fallback={<ViewLoader />}>
+                {activeView === 'summary' && (
+                  <SummaryView
+                    data={filteredData}
+                    selectedFranchisee={''}
+                    selectedClient={selectedAccounts.length === 1 ? selectedAccounts[0] : 'ALL'}
+                    dateRange={dateRange}
+                    allowedFranchises={availableFranchises.map(f => f.name)}
+                    allowedAccounts={allowedAccountIds}
+                    externalSummaryData={summaryData}
+                    externalLoading={loading && !isDataLoaded}
+                    effectiveAccountIds={effectiveAccountIds}
+                  />
+                )}
+                {activeView === 'planning' && <PlanningDashboardView allowedFranchises={availableFranchises.map(f => f.name)} userRole={userProfile?.role} />}
+                {activeView === 'dashboard' && (
+                  <ManagerialView
+                    dateRange={dateRange}
+                    accountIds={effectiveAccountIds}
+                  />
+                )}
+                {activeView === 'executive' && <DashboardOverview data={filteredData} />}
+                {activeView === 'campaigns' && <CampaignsView data={filteredData} />}
+                {activeView === 'ads' && (
+                  <AdsTableView
+                    data={filteredData}
+                    onCampaignClick={(campaignName) => {
+                      setActiveView('campaigns');
+                    }}
+                  />
+                )}
+                {activeView === 'creatives' && <CreativesView data={filteredData} />}
+                {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
+                {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
+                  <div className="flex h-[60vh] w-full items-center justify-center">
+                    <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
+                      <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />
+                      <h3 className="text-xl font-bold text-slate-900">Acesso Restrito</h3>
+                      <p className="text-slate-500">Seu perfil ({userProfile?.role}) não possui permissão para acessar as configurações.</p>
+                      <button onClick={() => setActiveView('dashboard')} className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg">Voltar ao Dashboard</button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </Suspense>
+                )}
+              </Suspense>
 
-            <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} BIHMKS&bull;GOW</footer>
-          </div>
-        </main>
+              <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} BIHMKS&bull;GOW</footer>
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
