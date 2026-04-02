@@ -39,7 +39,7 @@ export function Sidebar({ className, activeView, setActiveView, isDemoMode, user
   return (
     <div className={cn("flex flex-col h-full bg-card border-r py-6 px-4", className)}>
       <div className="mb-8 px-2 flex justify-center">
-        <img src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks.svg" alt="Bihmks Logo" className="w-full h-full object-contain" />
+        <img src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks.svg" alt="Bihmks Logo" className="w-full max-w-[220px] h-auto object-contain" />
       </div>
 
       <nav className="flex-1 space-y-2">

@@ -11,8 +11,14 @@
       "url": "https://mcp.supabase.com/mcp?project_ref=haujeexmwnowhviwcrqy",
       "_project_name": "DASH BIHMKS"
     },
-    "context7": {
-      "url": "https://mcp.context7.com/mcp"
+    "tavily": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@tavily/mcp-server",
+        "--api-key",
+        "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"
+      ]
     }
   }
 }
