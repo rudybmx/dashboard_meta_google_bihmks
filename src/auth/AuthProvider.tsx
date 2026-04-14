@@ -23,13 +23,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // ========== CARREGAR SESSÃO DO STORAGE ==========
+    // ========== CARREGAR SESSAO DO STORAGE ==========
     const loadSessionFromStorage = useCallback(async () => {
         let isMounted = true;
         try {
             setLoading(true);
             const stored = localStorage.getItem(STORAGE_KEY);
-            
+
             if (!stored) {
                 if (isMounted) setLoading(false);
                 return;
@@ -37,15 +37,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             const localSession = JSON.parse(stored) as LocalSession;
 
-            // 1. Validar se o usuário ainda existe e buscar perfil básico
-            const { data: userData, error: userError } = await supabase
-                .from('perfil_acesso')
-                .select('*')
-                .eq('email', localSession.email)
-                .maybeSingle();
+            // 1. Buscar perfil via RPC (contorna RLS na tabela perfil_acesso)
+            const { data: profileData, error: profileError } = await (supabase.rpc as any)(
+                'authenticate_user',
+                { p_email: localSession.email, p_password: '' }
+            );
 
-            if (userError || !userData) {
-                logger.warn('Session invalid or user not found:', userError);
+            // authenticate_user com senha vazia pode retornar vazio — fallback: buscar só accounts
+            // Se a RPC de accounts retornar dados, o usuário é válido
+            const { data: accountsData, error: accountsError } = await (supabase.rpc as any)(
+                'get_user_assigned_accounts',
+                { p_user_email: localSession.email }
+            );
+
+            if (accountsError) {
+                logger.error('Error fetching user accounts', accountsError);
+            }
+
+            // Se não conseguimos nem o perfil nem as contas, sessão inválida
+            const hasProfile = profileData && (profileData as any[]).length > 0;
+            const hasAccounts = accountsData && (accountsData as any[]).length > 0;
+
+            if (!hasProfile && !hasAccounts) {
+                logger.warn('Session invalid or user not found');
                 localStorage.removeItem(STORAGE_KEY);
                 if (isMounted) {
                     setSession(null);
@@ -54,32 +68,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            // 2. Buscar permissões atualizadas da nova tabela relacional
-            const { data: accountsData, error: accountsError } = await (supabase.rpc as any)('get_user_assigned_accounts', { 
-                p_user_email: localSession.email 
-            });
-
-            if (accountsError) {
-                logger.error('Error fetching user accounts', accountsError);
-            }
-
-            // Converter para array de strings (garantindo que seja string[])
-            // O RPC retorna TABLE(account_id text), então data é [{ account_id: '...' }, ...]
-            // Mas o supabase JS client pode retornar direto se for configurado, vamos assumir o padrão
-            const assignedIds: string[] = accountsData 
-                ? (accountsData as any[]).map((a: any) => a.account_id) 
+            const assignedIds: string[] = accountsData
+                ? (accountsData as any[]).map((a: any) =>
+                    String(a.account_id).replace(/^act_/, ''))
                 : [];
 
-            // Montar perfil
-            const pData = userData as any;
+            // Usar dados do profileData se disponível, senão reconstruir da sessão
+            const pData = hasProfile ? (profileData as any[])[0] : null;
             const profile: UserProfile = {
-                id: pData.id,
-                email: pData.email,
-                name: pData.nome || pData.email.split('@')[0],
-                role: (pData.role as UserRole) || 'client',
-                assigned_account_ids: assignedIds, // Dados frescos da tabela relacional
-                permissions: pData.permissions || [],
-                created_at: pData.created_at,
+                id: pData?.id ?? localSession.userId,
+                email: pData?.email ?? localSession.email,
+                name: pData?.nome ?? localSession.email.split('@')[0],
+                role: ((pData?.role ?? 'client') as UserRole),
+                assigned_account_ids: assignedIds,
+                permissions: pData?.permissions ?? [],
+                created_at: pData?.created_at ?? localSession.createdAt,
             };
 
             if (isMounted) {
@@ -100,7 +103,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         setError(null);
         try {
-            // Usar RPC para autenticação (bypassing RLS via Security Definer)
             const { data, error } = await (supabase.rpc as any)('authenticate_user', {
                 p_email: email,
                 p_password: password
@@ -115,21 +117,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 throw new Error('Credenciais inválidas.');
             }
 
-            const pData = data[0]; // RPC returns array
+            const pData = data[0];
 
-            // BUSCAR CONTAS ATUALIZADAS (Relational)
-            // Authenticate user retorna dados do perfil_acesso, que pode ter array desatualizado.
-            // Vamos buscar a fonte da verdade.
-            const { data: accountsData, error: accountsError } = await (supabase.rpc as any)('get_user_assigned_accounts', { 
-                p_user_email: email 
+            const { data: accountsData } = await (supabase.rpc as any)('get_user_assigned_accounts', {
+                p_user_email: email
             });
-            
-            const assignedIds: string[] = accountsData 
-                ? (accountsData as any[]).map((a: any) => a.account_id) 
+
+            const assignedIds: string[] = accountsData
+                ? (accountsData as any[]).map((a: any) =>
+                    String(a.account_id).replace(/^act_/, ''))
                 : [];
 
-
-            // Sucesso - Criar sessão local
             const newSession: LocalSession = {
                 userId: pData.id,
                 email: pData.email,
@@ -141,19 +139,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 email: pData.email,
                 name: pData.nome || pData.email.split('@')[0],
                 role: (pData.role as UserRole) || 'client',
-                assigned_account_ids: assignedIds, // Fonte da verdade
+                assigned_account_ids: assignedIds,
                 permissions: pData.permissions || [],
                 created_at: pData.created_at,
             };
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
-            
             setSession(newSession);
             setUserProfile(profile);
 
         } catch (err: any) {
             setError(err.message || 'Erro ao fazer login');
-            throw err; // Re-throw para o componente tratar se quiser
+            throw err;
         } finally {
             setLoading(false);
         }

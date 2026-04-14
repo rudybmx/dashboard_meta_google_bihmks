@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import * as supabaseService from '../services/supabaseService';
+import { fetchAllMetaAccountsAdmin } from '../services/supabaseService';
 import * as userService from '../services/userService';
 import { MetaAdAccount, Franchise, UserProfile } from '../types';
 import { CategoryRow } from '../services/supabaseService';
@@ -66,7 +67,7 @@ export const SettingsDataProvider: React.FC<SettingsDataProviderProps> = ({ chil
   const refreshAccounts = useCallback(async () => {
     setAccountsLoading(true);
     try {
-      const data = await supabaseService.fetchMetaAccounts();
+      const data = await fetchAllMetaAccountsAdmin();
       setAccounts(data);
     } catch (err) {
       console.error('Failed to fetch accounts:', err);
@@ -129,7 +130,7 @@ export const SettingsDataProvider: React.FC<SettingsDataProviderProps> = ({ chil
         setCategoriesLoading(true);
         try {
           const [accountsData, franchisesData, usersData, categoriesData] = await Promise.all([
-            supabaseService.fetchMetaAccounts(),
+            fetchAllMetaAccountsAdmin(),
             supabaseService.fetchFranchises(),
             userService.fetchUsers(),
             supabaseService.fetchCategories()

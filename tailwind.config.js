@@ -25,6 +25,10 @@ module.exports = {
   			sans: [
   				'Geist',
   				'sans-serif'
+  			],
+  			mono: [
+  				'DM Mono',
+  				'monospace'
   			]
   		},
   		colors: {
