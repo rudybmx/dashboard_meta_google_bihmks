@@ -1,4 +1,5 @@
 @import url('https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -52,6 +53,17 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 10%;
     --sidebar-ring: 0 0% 20%;
+
+    /* Cockpit structural colors (light mode) */
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f6f8fa;
+    --color-background-tertiary: #eef1f5;
+    --color-border-primary: #d0d7de;
+    --color-border-secondary: #c8d1da;
+    --color-border-tertiary: #d8dee4;
+    --color-text-primary: #1f2328;
+    --color-text-secondary: #656d76;
+    --color-text-tertiary: #8b949e;
   }
 
   .dark {
@@ -99,6 +111,17 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 10%;
     --sidebar-ring: 0 0% 20%;
+
+    /* Cockpit structural colors (dark mode) */
+    --color-background-primary: #0F1117;
+    --color-background-secondary: #161B22;
+    --color-background-tertiary: #1c2129;
+    --color-border-primary: #30363d;
+    --color-border-secondary: #21262d;
+    --color-border-tertiary: #30363d;
+    --color-text-primary: #e6edf3;
+    --color-text-secondary: #8b949e;
+    --color-text-tertiary: #6b7280;
   }
 }
 
@@ -108,5 +131,30 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ── Cockpit custom utilities ── */
+@layer utilities {
+  @keyframes pulse-warn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  @keyframes glow-green {
+    0%, 100% { box-shadow: 0 0 4px #00FF8840; }
+    50% { box-shadow: 0 0 12px #00FF8860; }
+  }
+  @keyframes glow-red {
+    0%, 100% { box-shadow: 0 0 4px #FF444440; }
+    50% { box-shadow: 0 0 12px #FF444460; }
+  }
+  .animate-pulse-warn {
+    animation: pulse-warn 2s ease-in-out infinite;
+  }
+  .animate-glow-green {
+    animation: glow-green 2s ease-in-out infinite;
+  }
+  .animate-glow-red {
+    animation: glow-red 2s ease-in-out infinite;
   }
 }

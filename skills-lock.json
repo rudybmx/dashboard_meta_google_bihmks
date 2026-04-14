@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "facebook-ads": {
+      "source": "openclaudia/openclaudia-skills",
+      "sourceType": "github",
+      "computedHash": "e9f55c9d086cb7c4f658addea260439a60a2641ea2aa5153caeb2cb84190c2b8"
+    },
+    "google-ads": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "computedHash": "9ceb95aa1969feaae2da9265f997aa1aa94882a0ad2db0dfc21063916217d84a"
+    },
+    "google-ads-manager": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "computedHash": "d52a1b94fbe1c89637ef044ec5ba286bc4b3ff1806d37ffed92a9b773df4ab69"
+    },
+    "kpi-dashboard-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "450bc47e5845632aa4363da7d45a823815c42a510c8c122b27894a920cda2e61"
+    },
+    "linkedin-ads": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "computedHash": "b7ae91b48535a0595475bca5a027b34229522c1eb9830ab927d8bafb2165260a"
+    },
+    "tiktok-ads": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "computedHash": "f44ffc3ac2b68a59907e6f379803630fa8130a9d070843e077242ecb6666f34a"
+    }
+  }
+}

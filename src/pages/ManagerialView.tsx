@@ -73,7 +73,7 @@ export const ManagerialView: React.FC<ManagerialViewProps> = ({ dateRange, accou
                 </div>
 
                 {/* FSD KPI Widgets - Reads its own data via useFinanceData */}
-                <KPISection />
+                <KPISection accountIds={accountIds} />
             </div>
 
             {/* Secondary Metrics Row */}

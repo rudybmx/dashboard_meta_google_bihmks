@@ -31,6 +31,7 @@ const BMSettingsTabComponent: React.FC = () => {
         franchises,
         categories,
         setAccounts: setData,
+        refreshAccounts,
         isLoading: loading,
         isDataLoaded
     } = useSettingsData();
@@ -46,6 +47,7 @@ const BMSettingsTabComponent: React.FC = () => {
     const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<MetaAdAccount>>>({});
     const isDirty = Object.keys(pendingUpdates).length > 0;
     const [isSaving, setIsSaving] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Local change handler (batches updates)
     const handleLocalChange = (id: string, field: keyof MetaAdAccount, value: any) => {
@@ -86,6 +88,43 @@ const BMSettingsTabComponent: React.FC = () => {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleRefreshAccounts = async () => {
+        setIsRefreshing(true);
+        try {
+            await refreshAccounts();
+        } catch (err) {
+            console.error('Falha ao atualizar contas:', err);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        const handleWindowFocus = () => {
+            if (!isDirty) {
+                void refreshAccounts();
+            }
+        };
+
+        window.addEventListener('focus', handleWindowFocus);
+        return () => window.removeEventListener('focus', handleWindowFocus);
+    }, [refreshAccounts, isDirty]);
+
+    const normalizeMetaStatus = (status?: string | null) => {
+        const normalized = (status || '')
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+
+        if (normalized === 'ATIVO') return 'ACTIVE';
+        if (normalized === 'DESATIVADO' || normalized === 'INATIVO') return 'DISABLED';
+        if (normalized === 'PENDENTE') return 'PENDING';
+        if (normalized === 'REMOVIDO') return 'REMOVED';
+
+        return normalized;
     };
 
     // Helper to get current displayed value (Local pending > Original)
@@ -308,7 +347,9 @@ const BMSettingsTabComponent: React.FC = () => {
                 : visibilityFilter === 'visible' ? item.client_visibility : !item.client_visibility;
 
             // 3. Status filter
-            const matchesMetaStatus = metaStatusFilter === 'all' ? true : item.status_meta === metaStatusFilter;
+            const matchesMetaStatus = metaStatusFilter === 'all'
+                ? true
+                : normalizeMetaStatus(item.status_meta) === metaStatusFilter;
 
             // 4. Franchise filter
             let matchesFranchise = true;
@@ -373,6 +414,14 @@ const BMSettingsTabComponent: React.FC = () => {
                             </button>
                         )}
                         <button
+                            onClick={handleRefreshAccounts}
+                            disabled={isSaving || isRefreshing}
+                            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            <RefreshCw className={isRefreshing ? 'animate-spin' : ''} size={14} />
+                            {isRefreshing ? 'Atualizando...' : 'Atualizar Lista'}
+                        </button>
+                        <button
                             onClick={handleSaveAll}
                             disabled={!isDirty || isSaving}
                             className={`
@@ -412,7 +461,7 @@ const BMSettingsTabComponent: React.FC = () => {
                             <option value="all">Unidades: Todas</option>
                             <option value="unassigned">⚠️ Sem Vínculo</option>
                             <option disabled>──────────</option>
-                            {franchises.map(f => f ? <option key={f.id} value={f.name}>{f.name}</option> : null)}
+                            {franchises.map(f => f ? <option key={f.id} value={f.id}>{f.name}</option> : null)}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
                             <Filter size={14} />

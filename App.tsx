@@ -38,6 +38,8 @@ function lazyWithRetry(importFn: () => Promise<any>) {
 // Lazy load views for code splitting (with auto-retry on stale chunks)
 const SummaryView = lazyWithRetry(() => import('./src/pages/SummaryView'));
 const ManagerialView = lazyWithRetry(() => import('./src/pages/ManagerialView'));
+const CockpitView = lazyWithRetry(() => import('./src/pages/CockpitView'));
+const AIInsightsView = lazyWithRetry(() => import('./src/pages/AIInsightsView'));
 const DashboardOverview = lazyWithRetry(() => import('./components/DashboardOverview'));
 const CampaignsView = lazyWithRetry(() => import('./components/CampaignsView'));
 const CreativesView = lazyWithRetry(() => import('./components/CreativesView'));
@@ -57,7 +59,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings' | 'settings_accounts' | 'settings_users' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning'>('summary');
+  const [activeView, setActiveView] = useState<'cockpit' | 'dashboard' | 'settings' | 'settings_accounts' | 'settings_users' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning' | 'ai_insights'>('summary');
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
@@ -385,9 +387,13 @@ export default function App() {
               <div className="h-20 flex items-center px-6 bg-black border-b border-white/10 shadow-sm relative z-40">
                 <h2 className="text-xl font-bold text-white tracking-tight">Configurações</h2>
               </div>
+            ) : activeView === 'cockpit' || activeView === 'ai_insights' ? (
+              <div className="h-20 flex items-center px-6 bg-black border-b border-white/10 shadow-sm relative z-40">
+                <h2 className="text-xl font-bold text-white tracking-tight">{activeView === 'cockpit' ? 'Cockpit de Controle' : 'Insights IA'}</h2>
+              </div>
             ) : (
               <DashboardHeader
-                title={activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : activeView === 'planning' ? 'Planejamento Analítico' : activeView === 'settings_accounts' ? 'Contas de Anúncios' : activeView === 'settings_users' ? 'Usuários e Acessos' : 'Dashboard'}
+                title={activeView === 'cockpit' ? 'Cockpit de Controle' : activeView === 'ai_insights' ? 'Insights IA' : activeView === 'dashboard' ? 'Visão Gerencial' : activeView === 'summary' ? 'Resumo Gerencial' : activeView === 'executive' ? 'Visão Executiva' : activeView === 'campaigns' ? 'Performance de Campanhas' : activeView === 'creatives' ? 'Galeria de Criativos' : activeView === 'ads' ? 'Detalhamento de Anúncios' : activeView === 'demographics' ? 'Inteligência de Público' : activeView === 'planning' ? 'Planejamento Analítico' : activeView === 'settings_accounts' ? 'Contas de Anúncios' : activeView === 'settings_users' ? 'Usuários e Acessos' : 'Dashboard'}
                 data={data}
                 selectedClients={selectedAccounts}
                 setSelectedClients={setSelectedAccounts}
@@ -412,6 +418,19 @@ export default function App() {
               {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
 
               <Suspense fallback={<ViewLoader />}>
+                {activeView === 'cockpit' && (
+                  <CockpitView
+                    data={filteredData}
+                    dateRange={dateRange}
+                    selectedAccounts={selectedAccounts}
+                    metaAccounts={metaAccounts}
+                    userProfile={userProfile}
+                    onNavigateView={setActiveView}
+                  />
+                )}
+                {activeView === 'ai_insights' && (
+                  <AIInsightsView userProfile={userProfile} />
+                )}
                 {activeView === 'summary' && (
                   <SummaryView
                     data={filteredData}
