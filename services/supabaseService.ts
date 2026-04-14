@@ -457,6 +457,61 @@ export const fetchSummaryReport = async (
 // META AD ACCOUNTS (tb_meta_ads_contas) — via RPC segura
 // ============================================================================
 
+/**
+ * Busca TODAS as contas diretamente da tabela, sem filtro de visibilidade.
+ * Uso exclusivo no painel de administração (BMSettingsTab) para permitir
+ * que admins vejam e alterem contas marcadas como ocultas.
+ */
+export const fetchAllMetaAccountsAdmin = async (): Promise<MetaAdAccount[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('tb_meta_ads_contas')
+            .select(`
+                account_id,
+                nome_original,
+                nome_ajustado,
+                franqueado_id,
+                categoria_id,
+                status_interno,
+                client_visibility,
+                saldo_balanco,
+                updated_at,
+                status_meta,
+                motivo_bloqueio,
+                total_gasto,
+                tb_franqueados (nome)
+            `)
+            .order('nome_original', { ascending: true });
+
+        if (error) {
+            logger.error('[fetchAllMetaAccountsAdmin] Error:', error);
+            return [];
+        }
+
+        return ((data as any[]) || []).map(row => ({
+            id: row.account_id,
+            account_id: row.account_id,
+            account_name: row.nome_original || 'Sem Nome',
+            display_name: row.nome_ajustado || '',
+            franchise_id: row.franqueado_id || '',
+            franchise_name: row.tb_franqueados?.nome || '',
+            categoria_id: row.categoria_id || '',
+            status: (row.status_interno === 'removed' ? 'removed' : 'active') as 'removed' | 'active',
+            client_visibility: row.client_visibility ?? true,
+            current_balance: safeFloat(row.saldo_balanco),
+            last_sync: row.updated_at || new Date().toISOString(),
+            status_meta: row.status_meta || undefined,
+            motivo_bloqueio: row.motivo_bloqueio || undefined,
+            total_gasto: safeFloat(row.total_gasto),
+            status_interno: row.status_interno || 'A Classificar',
+        }));
+
+    } catch (err) {
+        logger.error('[fetchAllMetaAccountsAdmin] Failed:', err);
+        return [];
+    }
+};
+
 export const fetchMetaAccounts = async (): Promise<MetaAdAccount[]> => {
     try {
         const userEmail = getUserEmail();
