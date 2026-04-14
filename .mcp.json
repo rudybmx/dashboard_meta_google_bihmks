@@ -1,35 +1,8 @@
 {
   "mcpServers": {
-    "shadcn": {
-      "command": "npx",
-      "args": [
-        "shadcn@latest",
-        "mcp"
-      ]
-    },
     "supabase": {
-      "url": "https://mcp.supabase.com/mcp",
-      "headers": {
-        "Authorization": "Bearer sbp_0bbaede9a0aa48c7a4dc07134365d7edb0508891",
-        "X-Project-Ref": "haujeexmwnowhviwcrqy"
-      },
-      "_project_name": "DASH BIHMKS"
-    },
-    "context7": {
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "CONTEXT7_API_KEY": "ctx7sk-58f4006f-696d-403e-9730-412891c28f0d"
-      }
-    },
-    "tavily": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "tavily-mcp@0.1.3"
-      ],
-      "env": {
-        "TAVILY_API_KEY": "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"
-      }
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=haujeexmwnowhviwcrqy"
     }
   }
 }
