@@ -39,6 +39,7 @@ const syncAccountAccess = async (
   supabase: ReturnType<typeof createClient>,
   userEmail: string,
   accountIds: string[],
+  isAdmin: boolean = false,
 ) => {
   const { error: deleteError } = await supabase
     .from('user_accounts_access')
@@ -47,9 +48,24 @@ const syncAccountAccess = async (
 
   if (deleteError) throw deleteError
 
-  if (!accountIds.length) return
+  let finalAccountIds = [...accountIds]
 
-  const rows = accountIds.map((accountId) => ({
+  // Se for admin e não tiver contas específicas, vincula todas as contas do sistema
+  if (isAdmin && finalAccountIds.length === 0) {
+    const { data: allAccounts, error: accountsError } = await supabase
+      .from('tb_meta_ads_contas')
+      .select('account_id')
+
+    if (accountsError) {
+      console.error('Error fetching all accounts for admin sync:', accountsError)
+    } else if (allAccounts) {
+      finalAccountIds = allAccounts.map(acc => String(acc.account_id))
+    }
+  }
+
+  if (!finalAccountIds.length) return
+
+  const rows = finalAccountIds.map((accountId) => ({
     user_email: userEmail,
     account_id: accountId,
   }))
@@ -126,6 +142,7 @@ Deno.serve(async (req) => {
         supabase,
         data.email,
         Array.isArray(data.assigned_account_ids) ? data.assigned_account_ids : [],
+        data.role === 'admin'
       )
 
       return json(200, { user: normalizeUser(data) })
@@ -156,6 +173,7 @@ Deno.serve(async (req) => {
         supabase,
         data.email,
         Array.isArray(data.assigned_account_ids) ? data.assigned_account_ids : [],
+        data.role === 'admin'
       )
 
       return json(200, { user: normalizeUser(data) })

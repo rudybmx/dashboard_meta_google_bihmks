@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger } from './components/layout/AppSidebar'
 import { AppSidebar } from './components/layout/AppSidebar';
 import { DashboardHeader } from './components/DashboardHeader';
 import { LoginView } from './components/LoginView';
-import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts } from './services/supabaseService';
+import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts, fetchAllMetaAccountsAdmin } from './services/supabaseService';
 import { CampaignData, Franchise, SummaryReportRow } from './types';
 import { Loader2, Shield, AlertTriangle } from 'lucide-react';
 import { RangeValue } from '@/src/shared/ui/calendar';
@@ -140,26 +140,14 @@ export default function App() {
         const end = dateRange.end!;
 
         // Determina franquias para filtro (IDs sent to Service)
-        // Always empty means "all accessible" (Service handles logic)
         const franchiseIdsForService: string[] = [];
 
-        /* Removed filter logic
-        if (selectedFranchise) {
-          // ...
-          const found = availableFranchises.find(f => f.name === selectedFranchise);
-          if (found) {
-             franchiseIdsForService = [found.id];
-          } else {
-             logger.warn(`Selected franchise "${selectedFranchise}" not found in available list.`);
-          }
-        } 
-        */
-        // If not selected, we send empty (server handles "all" or we rely on account filtering)
+        // 1. Fetch Accounts (Admin vê tudo, Client via RPC filtrada)
+        const allAccountsRaw = isAdmin 
+          ? await fetchAllMetaAccountsAdmin() 
+          : await fetchMetaAccounts();
 
-        // Fetch Accounts First (to have the list for filtering)
-        const allAccountsRaw = await fetchMetaAccounts();
-
-        // Filter accounts for the dropdown/state
+        // 2. Filter accounts for the dropdown/state
         const mappedAccounts: ResolvedMetaAccount[] = allAccountsRaw.map(a => {
           const franchise = officialFranchises.find(f => f.id === a.franchise_id);
           return {
@@ -463,7 +451,7 @@ export default function App() {
                 )}
                 {activeView === 'creatives' && <CreativesView data={filteredData} />}
                 {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
-                {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
+                {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userRole} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
                   <div className="flex h-[60vh] w-full items-center justify-center">
                     <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
                       <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />

@@ -37,14 +37,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             const localSession = JSON.parse(stored) as LocalSession;
 
-            // 1. Buscar perfil via RPC (contorna RLS na tabela perfil_acesso)
-            const { data: profileData, error: profileError } = await (supabase.rpc as any)(
+            // 1. Tentar revalidar via RPC (senha vazia)
+            let { data: profileData, error: profileError } = await (supabase.rpc as any)(
                 'authenticate_user',
                 { p_email: localSession.email, p_password: '' }
             );
 
-            // authenticate_user com senha vazia pode retornar vazio — fallback: buscar só accounts
-            // Se a RPC de accounts retornar dados, o usuário é válido
+            // 2. Fallback: Se a RPC retornar vazio, fazemos query direta (comum no refresh)
+            if (!profileData || (profileData as any[]).length === 0) {
+                const { data: directProfile, error: directError } = await supabase
+                    .from('perfil_acesso')
+                    .select('id, email, nome, role, permissions, created_at')
+                    .eq('email', localSession.email)
+                    .maybeSingle();
+
+                if (directProfile && !directError) {
+                    profileData = [directProfile];
+                }
+            }
+
+            // 3. Buscar contas atribuídas
             const { data: accountsData, error: accountsError } = await (supabase.rpc as any)(
                 'get_user_assigned_accounts',
                 { p_user_email: localSession.email }
@@ -54,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 logger.error('Error fetching user accounts', accountsError);
             }
 
-            // Se não conseguimos nem o perfil nem as contas, sessão inválida
+            // Se ainda não temos perfil e nem contas, sessão é inválida
             const hasProfile = profileData && (profileData as any[]).length > 0;
             const hasAccounts = accountsData && (accountsData as any[]).length > 0;
 
