@@ -451,7 +451,7 @@ export default function App() {
                 )}
                 {activeView === 'creatives' && <CreativesView data={filteredData} />}
                 {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
-                {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userRole} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
+                {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
                   <div className="flex h-[60vh] w-full items-center justify-center">
                     <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">
                       <Shield className="h-12 w-12 text-red-500 bg-red-50 p-3 rounded-full mb-2" />
