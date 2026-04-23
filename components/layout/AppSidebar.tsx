@@ -18,7 +18,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronRight, LogOut, PieChart, Users, Settings2, ClipboardList, LayoutGrid, Palette, Sparkles, TrendingUp, Megaphone, Video, Filter } from "lucide-react";
+import { ChevronRight, LogOut, PieChart, Users, Settings2, ClipboardList, LayoutGrid, Palette, TrendingUp } from "lucide-react";
 import { cn } from "@/src/shared/lib/utils";
 import { useAuth } from "@/src/auth/useAuth";
 
@@ -38,81 +38,6 @@ const NAV_CONFIG = [
           { label: "Anúncios", view: "ads", icon: LayoutGrid },
           { label: "Criativos", view: "creatives", icon: Palette },
           { label: "Públicos", view: "demographics", icon: Users },
-        ]
-      },
-      {
-        id: "google",
-        label: "Google Ads",
-        icon: Megaphone,
-        comingSoon: true,
-        children: [
-          { label: "Resumo Gerencial", view: null },
-          { label: "Visão Gerencial", view: null },
-          { label: "Campanhas", view: null },
-        ]
-      },
-      {
-        id: "linkedin",
-        label: "LinkedIn Ads",
-        icon: Filter,
-        comingSoon: true,
-        children: [
-          { label: "Resumo Gerencial", view: null },
-          { label: "Campanhas", view: null },
-        ]
-      },
-      {
-        id: "tiktok",
-        label: "TikTok Ads",
-        icon: Video,
-        comingSoon: true,
-        children: [
-          { label: "Resumo Gerencial", view: null },
-          { label: "Campanhas", view: null },
-        ]
-      },
-    ]
-  },
-  {
-    group: "Inteligência",
-    items: [
-      {
-        id: "ai_insights",
-        label: "Insights IA",
-        icon: Sparkles,
-        comingSoon: false,
-        children: [
-          { label: "Central de Insights", view: "ai_insights", icon: Sparkles },
-        ]
-      },
-    ]
-  },
-  {
-    group: "Gestão de Leads",
-    items: [
-      {
-        id: "crm",
-        label: "CRM",
-        icon: ({ className }: { className?: string }) => (
-          <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-          </svg>
-        ),
-        comingSoon: true,
-        children: [
-          { label: "Atendimentos", view: null },
-          { label: "Painéis", view: null },
-          { label: "Contatos", view: null },
-        ]
-      },
-      {
-        id: "funnel",
-        label: "Funil de Leads",
-        icon: Filter,
-        comingSoon: true,
-        children: [
-          { label: "Funil Geral", view: null },
-          { label: "Conversões", view: null },
         ]
       },
     ]
