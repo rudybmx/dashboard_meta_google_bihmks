@@ -49,6 +49,12 @@ const AdsTableView = lazyWithRetry(() => import('./components/AdsTableView'));
 const SettingsView = lazyWithRetry(() => import('./components/SettingsView'));
 const PlanningDashboardView = lazyWithRetry(() => import('./components/PlanningDashboardView'));
 const BMSettingsTab = lazyWithRetry(() => import('./components/BMSettingsTab'));
+const GoogleOverviewView = lazyWithRetry(() => import('./src/pages/google/GoogleOverviewView'));
+const GoogleCampaignsView = lazyWithRetry(() => import('./src/pages/google/GoogleCampaignsView'));
+const GoogleAdGroupsView = lazyWithRetry(() => import('./src/pages/google/GoogleAdGroupsView'));
+const GoogleKeywordsView = lazyWithRetry(() => import('./src/pages/google/GoogleKeywordsView'));
+const GoogleAdsView = lazyWithRetry(() => import('./src/pages/google/GoogleAdsView'));
+const GoogleAudiencesView = lazyWithRetry(() => import('./src/pages/google/GoogleAudiencesView'));
 
 export default function App() {
 
@@ -60,7 +66,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'cockpit' | 'dashboard' | 'settings' | 'settings_accounts' | 'settings_users' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning' | 'ai_insights'>('summary');
+  const [activeView, setActiveView] = useState<'cockpit' | 'dashboard' | 'settings' | 'settings_accounts' | 'settings_users' | 'campaigns' | 'creatives' | 'executive' | 'demographics' | 'ads' | 'summary' | 'planning' | 'ai_insights' | 'google_overview' | 'google_campaigns' | 'google_adgroups' | 'google_keywords' | 'google_ads' | 'google_audiences'>('summary');
   const [formattedComparisonData, setFormattedComparisonData] = useState<CampaignData[]>([]);
   const [kpiRpcData, setKpiRpcData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<SummaryReportRow[]>([]);
@@ -463,6 +469,12 @@ export default function App() {
                 )}
                 {activeView === 'creatives' && <CreativesView data={filteredData} />}
                 {activeView === 'demographics' && <DemographicsGeoView data={filteredData} />}
+                {activeView === 'google_overview' && <GoogleOverviewView />}
+                {activeView === 'google_campaigns' && <GoogleCampaignsView />}
+                {activeView === 'google_adgroups' && <GoogleAdGroupsView />}
+                {activeView === 'google_keywords' && <GoogleKeywordsView />}
+                {activeView === 'google_ads' && <GoogleAdsView />}
+                {activeView === 'google_audiences' && <GoogleAudiencesView />}
                 {(activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (userProfile?.role === 'admin' || userProfile?.role === 'executive') ? <SettingsView userRole={userProfile?.role} /> : (activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users') && (
                   <div className="flex h-[60vh] w-full items-center justify-center">
                     <div className="flex max-w-md flex-col items-center text-center gap-4 p-8 bg-white rounded-2xl border border-slate-200">

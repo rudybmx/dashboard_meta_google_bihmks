@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Drawer } from "vaul";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ChevronRight, LogOut, TrendingUp, ClipboardList, PieChart, LayoutGrid, Palette, Users, Settings2 } from "lucide-react";
+import { Menu, X, ChevronRight, LogOut, TrendingUp, ClipboardList, PieChart, LayoutGrid, Palette, Users, Settings2, Megaphone, BarChart2, Layers, Type, FileText } from "lucide-react";
 import { cn } from "@/src/shared/lib/utils";
 import { useAuth } from "@/src/auth/useAuth";
 
@@ -23,6 +23,20 @@ const NAV_CONFIG = [
           { label: "Anúncios", view: "ads", icon: LayoutGrid },
           { label: "Criativos", view: "creatives", icon: Palette },
           { label: "Públicos", view: "demographics", icon: Users },
+        ],
+      },
+      {
+        id: "google",
+        label: "Google Ads",
+        icon: Megaphone,
+        comingSoon: false,
+        children: [
+          { label: "Visão Geral", view: "google_overview", icon: BarChart2 },
+          { label: "Campanhas", view: "google_campaigns", icon: PieChart },
+          { label: "Grupos de Anúncios", view: "google_adgroups", icon: Layers },
+          { label: "Palavras-chave", view: "google_keywords", icon: Type },
+          { label: "Anúncios", view: "google_ads", icon: FileText },
+          { label: "Públicos", view: "google_audiences", icon: Users },
         ],
       },
     ],
