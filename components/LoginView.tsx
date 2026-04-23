@@ -30,7 +30,7 @@ export const LoginView: React.FC = () => {
     return (
         <div className="relative w-full h-screen overflow-hidden">
             <img
-                src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/fundo_bihplat.png"
+                src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/fundo_tela_login.webp"
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover"
                 aria-hidden="true"
