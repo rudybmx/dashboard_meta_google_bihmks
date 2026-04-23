@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { SidebarProvider, SidebarTrigger } from './components/layout/AppSidebar';
 import { AppSidebar } from './components/layout/AppSidebar';
+import { MobileSidebar } from './components/layout/MobileSidebar';
 import { DashboardHeader } from './components/DashboardHeader';
 import { LoginView } from './components/LoginView';
 import { fetchCampaignData, fetchFranchises, fetchKPIComparison, fetchSummaryReport, fetchMetaAccounts, fetchAllMetaAccountsAdmin } from './services/supabaseService';
@@ -356,20 +357,31 @@ export default function App() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-black overflow-hidden">
-        <AppSidebar
-          activeView={activeView}
-          setActiveView={setActiveView}
-          userRole={userProfile?.role}
-          userName={userProfile?.name}
-          userEmail={userProfile?.email}
-        />
+      <div className="flex h-screen w-full bg-black overflow-hidden overflow-x-hidden">
+        {/* Desktop sidebar — hidden on mobile */}
+        <div className="hidden lg:flex">
+          <AppSidebar
+            activeView={activeView}
+            setActiveView={setActiveView}
+            userRole={userProfile?.role}
+            userName={userProfile?.name}
+            userEmail={userProfile?.email}
+          />
+        </div>
 
-        <div className="flex flex-1 flex-col overflow-hidden h-full">
+        <div className="flex flex-1 flex-col overflow-hidden h-full min-w-0">
           <header className="relative z-50 flex-none">
-            <div className="lg:hidden p-4 bg-black border-b flex items-center justify-between">
-              <SidebarTrigger className="h-9 w-9" />
-              <span className="font-bold text-white">BIHMKS.GOW PLATAFORMA</span>
+            {/* Mobile top bar with hamburger */}
+            <div className="lg:hidden px-4 py-3 bg-black border-b border-white/10 flex items-center justify-between gap-3 min-h-[56px]">
+              <MobileSidebar
+                activeView={activeView}
+                setActiveView={setActiveView}
+                userRole={userProfile?.role}
+                userName={userProfile?.name}
+                userEmail={userProfile?.email}
+              />
+              <span className="font-bold text-white text-sm tracking-wide flex-1 text-center truncate">BIHMKS.GOW PLATAFORMA</span>
+              <div className="w-[44px]" />
             </div>
             {activeView === 'settings' || activeView === 'settings_accounts' || activeView === 'settings_users' ? (
               <div className="h-20 flex items-center px-6 bg-black border-b border-white/10 shadow-sm relative z-40">
@@ -402,7 +414,7 @@ export default function App() {
           </header>
 
           <main className="flex-1 overflow-y-auto bg-white p-6 scroll-smooth">
-            <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-10">
+            <div className="max-w-[1600px] mx-auto w-full space-y-6 pb-4">
               {isDemoMode && connectionError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">Atenção: Modo Offline. Exibindo dados de exemplo.</div>}
 
               <Suspense fallback={<ViewLoader />}>
@@ -463,7 +475,7 @@ export default function App() {
                 )}
               </Suspense>
 
-              <footer className="text-center text-muted-foreground text-xs py-8">&copy; {new Date().getFullYear()} BIHMKS&bull;GOW</footer>
+              <footer className="text-center text-muted-foreground text-xs pt-4 pb-2">&copy; {new Date().getFullYear()} BIHMKS&bull;GOW</footer>
             </div>
           </main>
         </div>

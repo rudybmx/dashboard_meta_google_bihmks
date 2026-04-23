@@ -60,6 +60,7 @@ const aggregateCreatives = (data: CampaignData[]) => {
 export const CreativesView: React.FC<Props> = ({ data }) => {
   const [sortOption, setSortOption] = useState('spend');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedAd, setSelectedAd] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -284,92 +285,194 @@ export const CreativesView: React.FC<Props> = ({ data }) => {
         </div>
       ) : (
         /* LIST VIEW */
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sortedCreatives.map((ad) => (
-            <div key={ad.id} className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex gap-4 p-4">
+            <div key={ad.id} className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
 
-              {/* Image - Larger in List View */}
-              <div className="relative w-48 h-36 bg-slate-100 overflow-hidden rounded-lg flex-shrink-0">
-                <div className="w-full h-full cursor-pointer" onClick={() => ad.ad_image_url && setSelectedImage(ad.ad_image_url)}>
-                  <SafeImage
-                    src={ad.ad_image_url}
-                    alt={ad.ad_name}
-                    className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
-                    fallbackIcon={<ImageIcon size={32} />}
-                    fallbackText={ad.ad_image_url ? "Imagem Expirada na Meta" : "Sem Imagem"}
-                  />
+              {/* ── MOBILE layout (< md): vertical stack ── */}
+              <div className="flex md:hidden flex-col">
+                {/* Image */}
+                <div className="relative w-full h-44 bg-slate-100 overflow-hidden">
+                  <div className="w-full h-full cursor-pointer" onClick={() => ad.ad_image_url && setSelectedImage(ad.ad_image_url)}>
+                    <SafeImage
+                      src={ad.ad_image_url}
+                      alt={ad.ad_name}
+                      className="object-cover w-full h-full"
+                      fallbackIcon={<ImageIcon size={32} />}
+                      fallbackText={ad.ad_image_url ? "Imagem Expirada na Meta" : "Sem Imagem"}
+                    />
+                  </div>
+                  <div className="absolute top-2 left-2 z-10">{getBadge(ad)}</div>
+                  {ad.ad_post_link && (
+                    <a href={ad.ad_post_link} target="_blank" rel="noopener noreferrer"
+                      className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white z-20 backdrop-blur-sm">
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
 
-                <div className="absolute top-2 left-2 z-10">{getBadge(ad)}</div>
+                {/* Content */}
+                <div className="p-3 flex flex-col gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 truncate">{ad.ad_title || "Anúncio sem título"}</h3>
+                    <p className="text-xs text-slate-500 truncate">{ad.account_name}</p>
+                  </div>
 
-                {ad.ad_post_link && (
-                  <a
-                    href={ad.ad_post_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white hover:bg-black/70 transition-colors z-20 backdrop-blur-sm"
-                    title="Ver post original"
-                  >
-                    <ExternalLink size={12} />
-                  </a>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900 line-clamp-1 mb-1" title={ad.ad_title}>
-                    {ad.ad_title || "Anúncio sem título"}
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium truncate mb-0.5" title={ad.account_name}>{ad.account_name}</p>
-                  <p className="text-xs text-slate-400 font-mono truncate mb-1">{ad.ad_name}</p>
-
-                  {/* Adset Name */}
-                  {ad.adset_name && (
-                    <p className="text-xs text-slate-400 italic truncate mb-2" title={ad.adset_name}>
-                      {ad.adset_name}
-                    </p>
-                  )}
-
-                  {/* Ad Body */}
+                  {/* Body preview + Ver mais */}
                   {ad.ad_body && (
-                    <div className="mb-3" title={ad.ad_body}>
-                      <p className="text-xs text-slate-600 leading-tight line-clamp-5 h-[60px] overflow-hidden">
-                        {ad.ad_body}
-                      </p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-xs text-slate-600 leading-snug line-clamp-2 flex-1">{ad.ad_body}</p>
+                      <button
+                        onClick={() => setSelectedAd(ad)}
+                        className="shrink-0 text-xs text-indigo-600 font-medium whitespace-nowrap hover:underline"
+                      >
+                        Ver mais
+                      </button>
                     </div>
                   )}
-                </div>
+                  {!ad.ad_body && (
+                    <button onClick={() => setSelectedAd(ad)} className="self-start text-xs text-indigo-600 font-medium hover:underline">
+                      Ver detalhes
+                    </button>
+                  )}
 
-                <div className="grid grid-cols-5 gap-4">
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Investimento</p>
-                    <p className="text-sm font-semibold text-slate-900">{fmtCurrency(ad.spend)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Leads</p>
-                    <p className="text-sm font-bold text-blue-600">{ad.leads}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">CPL</p>
-                    <p className={cn("text-sm font-bold", ad.cpl < avgCpl ? "text-emerald-600" : "text-rose-600")}>
-                      {fmtCurrency(ad.cpl)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">CTR</p>
-                    <p className="text-sm font-semibold text-slate-700">{ad.ctr.toFixed(2)}%</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Frequência</p>
-                    <p className="text-sm font-semibold text-slate-700">{ad.frequency.toFixed(2)}x</p>
+                  {/* Metrics 2×2 */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 border-t pt-2 mt-1">
+                    <div>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Investimento</p>
+                      <p className="text-sm font-semibold text-slate-900">{fmtCurrency(ad.spend)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Leads</p>
+                      <p className="text-sm font-bold text-blue-600">{ad.leads}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">CPL</p>
+                      <p className={cn("text-sm font-bold", ad.cpl < avgCpl ? "text-emerald-600" : "text-rose-600")}>{fmtCurrency(ad.cpl)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">CTR</p>
+                      <p className="text-sm font-semibold text-slate-700">{ad.ctr.toFixed(2)}%</p>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* ── DESKTOP layout (≥ md): original horizontal ── */}
+              <div className="hidden md:flex gap-4 p-4">
+                <div className="relative w-48 h-36 bg-slate-100 overflow-hidden rounded-lg flex-shrink-0">
+                  <div className="w-full h-full cursor-pointer" onClick={() => ad.ad_image_url && setSelectedImage(ad.ad_image_url)}>
+                    <SafeImage
+                      src={ad.ad_image_url}
+                      alt={ad.ad_name}
+                      className="object-cover w-full h-full transition-transform hover:scale-105 duration-300"
+                      fallbackIcon={<ImageIcon size={32} />}
+                      fallbackText={ad.ad_image_url ? "Imagem Expirada na Meta" : "Sem Imagem"}
+                    />
+                  </div>
+                  <div className="absolute top-2 left-2 z-10">{getBadge(ad)}</div>
+                  {ad.ad_post_link && (
+                    <a href={ad.ad_post_link} target="_blank" rel="noopener noreferrer"
+                      className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white hover:bg-black/70 transition-colors z-20 backdrop-blur-sm"
+                      title="Ver post original">
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900 line-clamp-1 mb-1" title={ad.ad_title}>
+                      {ad.ad_title || "Anúncio sem título"}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium truncate mb-0.5">{ad.account_name}</p>
+                    <p className="text-xs text-slate-400 font-mono truncate mb-1">{ad.ad_name}</p>
+                    {ad.adset_name && <p className="text-xs text-slate-400 italic truncate mb-2">{ad.adset_name}</p>}
+                    {ad.ad_body && (
+                      <p className="text-xs text-slate-600 leading-tight line-clamp-3 mb-3">{ad.ad_body}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-5 gap-4">
+                    {[
+                      { label: 'Investimento', value: fmtCurrency(ad.spend), cls: 'text-slate-900' },
+                      { label: 'Leads', value: ad.leads, cls: 'text-blue-600' },
+                      { label: 'CPL', value: fmtCurrency(ad.cpl), cls: ad.cpl < avgCpl ? 'text-emerald-600' : 'text-rose-600' },
+                      { label: 'CTR', value: `${ad.ctr.toFixed(2)}%`, cls: 'text-slate-700' },
+                      { label: 'Frequência', value: `${ad.frequency.toFixed(2)}x`, cls: 'text-slate-700' },
+                    ].map(m => (
+                      <div key={m.label}>
+                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">{m.label}</p>
+                        <p className={cn("text-sm font-semibold", m.cls)}>{m.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
           ))}
         </div>
       )}
+
+      {/* Ad Detail Modal (mobile "Ver mais") */}
+      <Dialog open={!!selectedAd} onOpenChange={() => setSelectedAd(null)}>
+        <DialogContent className="max-w-sm w-[92vw] max-h-[85vh] overflow-y-auto rounded-2xl p-0">
+          {selectedAd && (
+            <div className="flex flex-col">
+              {/* Image */}
+              <div className="relative w-full aspect-video bg-slate-100 overflow-hidden rounded-t-2xl">
+                <SafeImage
+                  src={selectedAd.ad_image_url}
+                  alt={selectedAd.ad_name}
+                  className="object-cover w-full h-full"
+                  fallbackIcon={<ImageIcon size={32} />}
+                  fallbackText="Sem Imagem"
+                />
+                <div className="absolute top-3 left-3">{getBadge(selectedAd)}</div>
+                {selectedAd.ad_post_link && (
+                  <a href={selectedAd.ad_post_link} target="_blank" rel="noopener noreferrer"
+                    className="absolute top-3 right-3 bg-black/50 p-1.5 rounded-full text-white z-20 backdrop-blur-sm">
+                    <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="p-4 flex flex-col gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">{selectedAd.ad_title || "Anúncio sem título"}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{selectedAd.account_name}</p>
+                  {selectedAd.adset_name && <p className="text-xs text-slate-400 italic mt-0.5">{selectedAd.adset_name}</p>}
+                </div>
+
+                {selectedAd.ad_body && (
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-400 uppercase font-bold tracking-wider mb-1.5">Texto do Anúncio</p>
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedAd.ad_body}</p>
+                  </div>
+                )}
+
+                {/* Metrics */}
+                <div className="grid grid-cols-2 gap-3 border-t pt-3">
+                  {[
+                    { label: 'Investimento', value: fmtCurrency(selectedAd.spend), cls: 'text-slate-900' },
+                    { label: 'Leads', value: selectedAd.leads, cls: 'text-blue-600' },
+                    { label: 'CPL', value: fmtCurrency(selectedAd.cpl), cls: selectedAd.cpl < avgCpl ? 'text-emerald-600' : 'text-rose-600' },
+                    { label: 'CTR', value: `${selectedAd.ctr.toFixed(2)}%`, cls: 'text-slate-700' },
+                    { label: 'Frequência', value: `${selectedAd.frequency.toFixed(2)}x`, cls: 'text-slate-700' },
+                    { label: 'Impressões', value: selectedAd.impressions.toLocaleString('pt-BR'), cls: 'text-slate-700' },
+                  ].map(m => (
+                    <div key={m.label} className="bg-slate-50 rounded-xl p-3">
+                      <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">{m.label}</p>
+                      <p className={cn("text-base font-bold", m.cls)}>{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Lightbox Modal */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>

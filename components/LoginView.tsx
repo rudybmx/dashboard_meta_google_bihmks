@@ -42,12 +42,9 @@ export const LoginView: React.FC = () => {
                 initial={{ opacity: 0, x: -40 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
-                className="relative z-10 flex h-full w-1/2 items-center justify-center"
+                className="relative z-10 flex h-full w-full md:w-1/2 items-center justify-center px-6 md:px-0"
             >
-                <div className="
-                    w-full max-w-sm px-8
-                    flex flex-col gap-6
-                ">
+                <div className="w-full max-w-sm md:px-8 flex flex-col gap-6">
                     <img
                         src="https://pub-db8ed4fb33634589a6ce5fb07e85cb46.r2.dev/logo/bihmks/logo_bihmks_branco.svg"
                         alt="Logo"

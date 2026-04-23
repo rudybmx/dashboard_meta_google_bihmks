@@ -50,6 +50,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 }) => {
   const { data: clusters = [] } = useClusters();
   const [open, setOpen] = React.useState(false);
+  const [openMobile, setOpenMobile] = React.useState(false);
 
   const filteredClusters = useMemo(() => {
     // Documentação de Hierarquia de Acesso (RBAC):
@@ -142,115 +143,136 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const isClientRole = userRole === 'client';
 
   return (
-    <div className="flex h-20 w-full items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm z-50 relative">
-
-      {/* Left: Page Title */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h1>
-        <p className="text-sm text-slate-500 flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-          Dados atualizados
-        </p>
-      </div>
-
-      {/* Right: Global Filters Toolbar */}
-      <div className="flex items-center gap-3">
-
-        {/* 1. Franqueado (Hidden for Clients) - REMOVED */}
-
-
-        {/* 1.5 Plataforma — removed */}
-
-        {/* 1.6 Agrupamento */}
-        {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
-          <div className="w-[200px]">
-            <Select
-              placeholder="Agrupamento"
-              value={selectedCluster}
-              onChange={(e) => setSelectedCluster(e.target.value)}
-              options={[
-                { value: 'ALL', label: 'Todos os agrupamentos' },
-                ...filteredClusters.map(c => ({ value: c.id, label: c.name }))
-              ]}
-            />
-          </div>
-        )}
-
-        {/* 2. Cliente com Combobox Searchable */}
-        <div className="flex items-center gap-2">
-          {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL') ? false : true) && (
-            <Badge variant="secondary" className="font-normal border-indigo-100 bg-indigo-50 text-indigo-700">
-              {getBadgeText()}
-            </Badge>
+    <div className="w-full border-b border-slate-200 bg-white shadow-sm z-50 relative">
+      {/* Top row: title */}
+      <div className="flex items-center justify-between px-4 lg:px-6 pt-3 pb-1 lg:pt-0 lg:pb-0 lg:h-14">
+        <div>
+          <h1 className="text-base lg:text-xl font-bold text-slate-900 tracking-tight leading-tight">{title}</h1>
+          <p className="text-xs text-slate-500 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+            Dados atualizados
+          </p>
+        </div>
+        {/* Calendar on desktop stays in top row */}
+        <div className="hidden lg:flex items-center gap-3">
+          {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
+            <div className="w-[180px]">
+              <Select
+                placeholder="Agrupamento"
+                value={selectedCluster}
+                onChange={(e) => setSelectedCluster(e.target.value)}
+                options={[
+                  { value: 'ALL', label: 'Todos os agrupamentos' },
+                  ...filteredClusters.map(c => ({ value: c.id, label: c.name }))
+                ]}
+              />
+            </div>
           )}
-
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className="w-[280px] justify-between border-slate-200 font-normal bg-white"
-              >
-                <div className="flex items-center gap-1 overflow-hidden text-slate-600">
-                  <span className="truncate">
+          <div className="flex items-center gap-2">
+            {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL') ? false : true) && (
+              <Badge variant="secondary" className="font-normal border-indigo-100 bg-indigo-50 text-indigo-700">
+                {getBadgeText()}
+              </Badge>
+            )}
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-[260px] justify-between border-slate-200 font-normal bg-white"
+                >
+                  <span className="truncate text-slate-600">
                     {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL'))
                       ? "Selecione Unidades..."
                       : (selectedClients.length === 1
                         ? clients.find(c => c.value === selectedClients[0])?.label || "1 selecionada"
                         : getBadgeText())}
                   </span>
-                </div>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0 shadow-lg" align="end">
+                <Command>
+                  <CommandInput placeholder="Buscar unidade ou ID..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhuma conta encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem onSelect={() => { setSelectedClients([]); setOpen(false); }} className="cursor-pointer font-medium text-slate-800">
+                        <Check className={cn("mr-2 h-4 w-4 text-indigo-500", (!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL')) ? "opacity-100" : "opacity-0")} />
+                        Todas as contas ({clients.length})
+                      </CommandItem>
+                    </CommandGroup>
+                    <CommandGroup heading="Contas de Anúncio">
+                      {clients.map((client) => (
+                        <CommandItem key={client.value} value={client.label + ' ' + client.id} onSelect={() => toggleClient(client.value)} className="cursor-pointer">
+                          <Check className={cn("mr-2 h-4 w-4 shrink-0 text-indigo-500", selectedClients.includes(client.value) ? "opacity-100" : "opacity-0")} />
+                          <div className="flex flex-col overflow-hidden w-full">
+                            <span className="truncate text-slate-800 leading-tight" title={client.label}>{client.label}</span>
+                            <span className="text-[10px] text-slate-400 font-mono truncate">ID: {client.id}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="h-7 w-px bg-slate-200" />
+          <div className="relative isolate z-50">
+            <Calendar compact={false} allowClear showTimeInput={false} popoverAlignment="end" value={dateRange} onChange={setDateRange} />
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile filters row — horizontal scroll */}
+      <div className="lg:hidden flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
+        {filteredClusters.length > 0 && selectedCluster !== undefined && setSelectedCluster && (
+          <div className="shrink-0 w-[160px]">
+            <Select
+              placeholder="Agrupamento"
+              value={selectedCluster}
+              onChange={(e) => setSelectedCluster(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'Todos agrupamentos' },
+                ...filteredClusters.map(c => ({ value: c.id, label: c.name }))
+              ]}
+            />
+          </div>
+        )}
+        <div className="shrink-0">
+          <Popover open={openMobile} onOpenChange={setOpenMobile}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" aria-expanded={openMobile} className="w-[180px] justify-between border-slate-200 font-normal bg-white text-sm h-9">
+                <span className="truncate text-slate-600 text-xs">
+                  {(!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL'))
+                    ? "Unidades..."
+                    : (selectedClients.length === 1
+                      ? clients.find(c => c.value === selectedClients[0])?.label || "1 selecionada"
+                      : getBadgeText())}
+                </span>
+                <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0 shadow-lg" align="end">
+            <PopoverContent className="w-[min(280px,90vw)] p-0 shadow-xl z-[9999]" align="start" sideOffset={6} collisionPadding={12}>
               <Command>
                 <CommandInput placeholder="Buscar unidade ou ID..." />
-                <CommandList>
+                <CommandList className="max-h-[50vh]">
                   <CommandEmpty>Nenhuma conta encontrada.</CommandEmpty>
                   <CommandGroup>
-                    <CommandItem
-                      onSelect={() => {
-                        setSelectedClients([]);
-                        setOpen(false);
-                      }}
-                      className="cursor-pointer font-medium text-slate-800"
-                    >
-                      <div className="flex items-center">
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4 text-indigo-500",
-                            (!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL')) ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        Todas as contas ({clients.length})
-                      </div>
+                    <CommandItem onSelect={() => { setSelectedClients([]); setOpenMobile(false); }} className="cursor-pointer font-medium text-slate-800">
+                      <Check className={cn("mr-2 h-4 w-4 text-indigo-500", (!selectedClients || selectedClients.length === 0 || selectedClients.includes('ALL')) ? "opacity-100" : "opacity-0")} />
+                      Todas as contas ({clients.length})
                     </CommandItem>
                   </CommandGroup>
                   <CommandGroup heading="Contas de Anúncio">
                     {clients.map((client) => (
-                      <CommandItem
-                        key={client.value}
-                        value={client.label + ' ' + client.id} // Searchable by title or ID
-                        onSelect={() => toggleClient(client.value)}
-                        className="cursor-pointer"
-                      >
-                        <div className="flex items-center w-full min-w-0">
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4 shrink-0 text-indigo-500",
-                              selectedClients.includes(client.value) ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col overflow-hidden w-full">
-                            <span className="truncate text-slate-800 leading-tight" title={client.label}>
-                              {client.label}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono truncate">
-                              ID: {client.id}
-                            </span>
-                          </div>
+                      <CommandItem key={client.value} value={client.label + ' ' + client.id} onSelect={() => toggleClient(client.value)} className="cursor-pointer">
+                        <Check className={cn("mr-2 h-4 w-4 shrink-0 text-indigo-500", selectedClients.includes(client.value) ? "opacity-100" : "opacity-0")} />
+                        <div className="flex flex-col overflow-hidden w-full">
+                          <span className="truncate text-slate-800 leading-tight" title={client.label}>{client.label}</span>
+                          <span className="text-[10px] text-slate-400 font-mono truncate">ID: {client.id}</span>
                         </div>
                       </CommandItem>
                     ))}
@@ -260,19 +282,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </PopoverContent>
           </Popover>
         </div>
-
-        <div className="h-8 w-px bg-slate-200 mx-2"></div>
-
-        {/* 3. CALENDAR WRAPPER - This fixes the 'not clickable' issue */}
-        <div className="relative isolate z-50">
-          <Calendar
-            compact={false}
-            allowClear
-            showTimeInput={false}
-            popoverAlignment="end" // Opens to the left
-            value={dateRange}
-            onChange={setDateRange}
-          />
+        <div className="shrink-0">
+          <Calendar compact={true} allowClear showTimeInput={false} popoverAlignment="end" value={dateRange} onChange={setDateRange} />
         </div>
       </div>
     </div>
